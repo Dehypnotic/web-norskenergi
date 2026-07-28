@@ -29,12 +29,12 @@ export default function Header({
               <h1 className="text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-slate-400">
                 Norsk Kraft<span className="text-cyan-400">Puls</span>
               </h1>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border whitespace-nowrap shrink-0 ${
                 isLiveMode 
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
                   : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
               }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`}></span>
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isLiveMode ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`}></span>
                 {isLiveMode ? 'LIVE API (NO1–NO5)' : 'FALLBACK DATA'}
               </span>
             </div>
@@ -110,7 +110,7 @@ export default function Header({
         {/* Action Controls */}
         <div className="flex items-center gap-3">
           <div className="hidden lg:block text-right">
-            <div className="text-[11px] uppercase tracking-wider font-bold text-slate-500">Sist oppdatert</div>
+            <div className="text-[11px] uppercase tracking-wider font-bold text-slate-500">Oppdatert</div>
             <div className="text-xs font-mono font-medium text-slate-300">
               {lastUpdated ? lastUpdated.toLocaleTimeString('no-NO') : '--:--:--'}
             </div>
