@@ -230,10 +230,15 @@ export default function ZonePrices({ zonePrices, isLoading }) {
                     style={{ height: `${heightPercent}%` }}
                   />
 
-                  {/* Hour Label */}
-                  <span className={`text-[10px] mt-2 font-mono ${isCurrentHour ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>
-                    {String(idx).padStart(2, '0')}
-                  </span>
+                  {/* Hour & Whole-øre Price Stack */}
+                  <div className="mt-2 flex flex-col items-center gap-0.5 pointer-events-none">
+                    <span className={`text-[10px] font-mono ${isCurrentHour ? 'text-cyan-400 font-bold' : 'text-slate-400'}`}>
+                      {String(idx).padStart(2, '0')}
+                    </span>
+                    <span className={`text-[9px] sm:text-[10px] font-mono font-bold ${isCurrentHour ? 'text-cyan-300' : 'text-slate-300'}`}>
+                      {Math.round(ore)}
+                    </span>
+                  </div>
                 </div>
               );
             })}

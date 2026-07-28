@@ -233,24 +233,34 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
         </div>
 
         {/* Dedicated Clean X-axis Timeline Row */}
-        <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono pt-2 px-4">
+        <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono pt-2 px-2">
           {viewMode === 'MONTHLY' ? (
             selectedYear === 'ALL' ? (
-              <>
+              <div className="flex justify-between w-full px-2">
                 <span>2023 (Jan-Des)</span>
                 <span>2024 (Jan-Des)</span>
                 <span>2025 (Jan-Des)</span>
                 <span>2026 (Jan-Jun)</span>
-              </>
+              </div>
             ) : (
-              ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'].map(m => (
-                <span key={m}>{m}</span>
-              ))
+              <div className="flex w-full">
+                {currentDataset.map((item, idx) => {
+                  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
+                  const monthLabel = item.month ? monthNames[item.month - 1] : (item.label || '');
+                  return (
+                    <div key={idx} className="flex-1 text-center font-bold text-slate-300">
+                      {monthLabel}
+                    </div>
+                  );
+                })}
+              </div>
             )
           ) : (
-            [1970, 1980, 1990, 2000, 2010, 2020, 2025].map(y => (
-              <span key={y}>{y}</span>
-            ))
+            <div className="flex justify-between w-full px-2">
+              {[1970, 1980, 1990, 2000, 2010, 2020, 2025].map(y => (
+                <span key={y}>{y}</span>
+              ))}
+            </div>
           )}
         </div>
 
