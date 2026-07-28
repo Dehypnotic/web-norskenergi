@@ -128,7 +128,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-cyan-400" />
             <span className="font-bold text-slate-300">Norsk KraftPuls Dashboard</span>
-            <span>&copy; {new Date().getFullYear()}</span>
+            <span>&copy; {new Date().getFullYear()} Dehypnotic</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-[11px]">
