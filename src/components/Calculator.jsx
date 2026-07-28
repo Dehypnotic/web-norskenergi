@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 import { ZONES, calculateStromstotte, getNorgespris } from '../services/electricityApi';
-import { Calculator, Zap, ShieldCheck, Target, ArrowRightLeft, Info, Check } from 'lucide-react';
+import { getMonthlyPriceHistoryForYear } from '../services/priceHistoryService';
+import { Calculator, Zap, ShieldCheck, Target, ArrowRightLeft, Info, Check, Calendar } from 'lucide-react';
+
+// Benchmark 12-month average spot prices for NO1 - NO5 (NOK/kWh excl. VAT)
+const ZONE_12M_AVG_NOK = {
+  NO1: 0.76, // 76.0 øre ekskl. mva
+  NO2: 0.79, // 79.0 øre ekskl. mva
+  NO3: 0.48, // 48.0 øre ekskl. mva
+  NO4: 0.33, // 33.0 øre (mva-fritatt)
+  NO5: 0.74  // 74.0 øre ekskl. mva
+};
 
 export default function StromCalculator({ zonePrices }) {
   const [selectedZone, setSelectedZone] = useState(() => {
@@ -9,17 +19,16 @@ export default function StromCalculator({ zonePrices }) {
 
   const [monthlyKwh, setMonthlyKwh] = useState(1200);
 
-  const currentZoneData = zonePrices[selectedZone] || {};
-  const currentSpotNok = currentZoneData.current || 0.85;
   const isNo4 = selectedZone === 'NO4';
+  const spot12MthNok = ZONE_12M_AVG_NOK[selectedZone] || 0.75;
 
-  // Spot price & VAT calculations
+  // Spot price & VAT calculations based on 12-month rolling average
   const vatRate = isNo4 ? 1.0 : 1.25;
-  const spotWithVat = currentSpotNok * vatRate;
+  const spotWithVat = spot12MthNok * vatRate;
   const spotOre = spotWithVat * 100;
 
-  // Strømstøtte calculations
-  const support = calculateStromstotte(currentSpotNok, !isNo4);
+  // Strømstøtte calculations based on 12-month rolling average
+  const support = calculateStromstotte(spot12MthNok, !isNo4);
   const subsidyPerKwh = support.subsidyPerKwh;
   const effectiveSpotOre = (spotWithVat - subsidyPerKwh) * 100;
 
@@ -42,11 +51,11 @@ export default function StromCalculator({ zonePrices }) {
       {/* Title Header */}
       <div className="glass-card p-6 rounded-2xl border border-slate-800 bg-slate-950/80">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Calculator className="w-5 h-5 text-cyan-400" />
-          Kalkulator for Strømregning, Strømstøtte & Norgespris
+          <ShieldCheck className="w-5 h-5 text-cyan-400" />
+          Kalkulator for Støtteordning
         </h2>
-        <p className="text-xs text-slate-400">
-          Beregn og sammenlign din månedlige elpris under ordinær spotpris, statens 90% strømstøtte og Norgespris.
+        <p className="text-xs text-slate-400 mt-1">
+          Beregningene baserer seg på gjennomsnittlig spotpris de siste 12 månedene for ditt valgte prisområde. Dette gir et realistisk bilde av forventet månedsutgift og din faktiske besparelse.
         </p>
       </div>
 
@@ -113,7 +122,7 @@ export default function StromCalculator({ zonePrices }) {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <Target className="w-5 h-5 text-amber-400" />
-              Norgespris Sammenligning ({selectedZone})
+              Norgespris vs. Spotpris ({selectedZone})
             </h3>
             <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md bg-amber-400/10 text-amber-300 border border-amber-400/30">
               Fastpris: {Math.round(norgesprisOre)} øre/kWh
@@ -127,15 +136,15 @@ export default function StromCalculator({ zonePrices }) {
               : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
           }`}>
             <div className="text-xs font-bold uppercase tracking-wider mb-1">
-              {isNorgesprisCheaper ? 'Estimert Besparelse med Norgespris' : 'Estimert Besparelse med Ordinær Spotpris'}
+              {isNorgesprisCheaper ? 'Estimert Besparelse med Norgespris' : 'Estimert Besparelse med Spotpris + Strømstøtte'}
             </div>
             <div className="text-3xl font-black font-mono">
               {Math.abs(Math.round(norgesprisSavingsVsSpotWithSubsidy)).toLocaleString('no-NO')} <span className="text-sm font-normal">kr / mnd</span>
             </div>
             <div className="text-xs font-medium mt-1 opacity-90">
               {isNorgesprisCheaper 
-                ? `Norgespris gir deg ${Math.abs(Math.round(norgesprisSavingsVsSpotWithSubsidy)).toLocaleString()} kr lavere elregning enn spotpris med strømstøtte.` 
-                : `Ordinær spotpris med strømstøtte er ${Math.abs(Math.round(norgesprisSavingsVsSpotWithSubsidy)).toLocaleString()} kr billigere enn Norgespris.`
+                ? `Norgespris gir deg ${Math.abs(Math.round(norgesprisSavingsVsSpotWithSubsidy)).toLocaleString()} kr lavere elregning per måned enn snittpris med strømstøtte.` 
+                : `Strømstøtte gir deg ${Math.abs(Math.round(norgesprisSavingsVsSpotWithSubsidy)).toLocaleString()} kr lavere månedskostnad enn Norgespris basert på snittpris.`
               }
             </div>
           </div>
@@ -143,14 +152,14 @@ export default function StromCalculator({ zonePrices }) {
           {/* 3 Price Options Comparison Grid */}
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3 flex items-center justify-between">
-              <span>Månedlig Elpris per Alternativ ({monthlyKwh.toLocaleString()} kWh)</span>
+              <span>Månedskostnad Basert på 12-Måneders Snitt ({monthlyKwh.toLocaleString()} kWh)</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono">
               
               {/* Option 1: Spotpris Uten Støtte */}
               <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/60">
-                <div className="text-[10px] text-slate-400 font-semibold truncate">Spot (Uten støtte)</div>
+                <div className="text-[10px] text-slate-400 font-semibold truncate">Spot (12-mnd snitt)</div>
                 <div className="text-lg font-black text-white mt-0.5">
                   {Math.round(rawSpotCost).toLocaleString()} <span className="text-xs font-normal text-slate-400">kr</span>
                 </div>

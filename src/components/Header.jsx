@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, RefreshCw, Zap, Database, MapPin, BarChart3, Calculator, Download, Sun, Moon } from 'lucide-react';
+import { Activity, RefreshCw, Zap, Database, MapPin, BarChart3, Calculator, Download, Sun, Moon, ShieldCheck } from 'lucide-react';
 
 export default function Header({ 
   activeTab, 
@@ -71,6 +71,18 @@ export default function Header({
           </button>
 
           <button
+            onClick={() => setActiveTab('history')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'history'
+                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            Prishistorikk
+          </button>
+
+          <button
             onClick={() => setActiveTab('ssb')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all ${
               activeTab === 'ssb'
@@ -79,7 +91,7 @@ export default function Header({
             }`}
           >
             <Database className="w-4 h-4" />
-            SSB Historikk
+            SSB
           </button>
 
           <button
@@ -90,8 +102,8 @@ export default function Header({
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
           >
-            <Calculator className="w-4 h-4" />
-            Kalkulator
+            <ShieldCheck className="w-4 h-4" />
+            Støtteordning
           </button>
         </nav>
 

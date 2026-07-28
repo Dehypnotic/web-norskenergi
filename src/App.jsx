@@ -3,6 +3,7 @@ import Header from './components/Header';
 import ZonePrices from './components/ZonePrices';
 import EnergyFlowMap from './components/EnergyFlowMap';
 import HistoricalStats from './components/HistoricalStats';
+import PriceHistory from './components/PriceHistory';
 import StromCalculator from './components/Calculator';
 import DataExportModal from './components/DataExportModal';
 
@@ -96,6 +97,10 @@ export default function App() {
 
         {activeTab === 'flow' && (
           <EnergyFlowMap zonePrices={zonePrices} />
+        )}
+
+        {activeTab === 'history' && (
+          <PriceHistory />
         )}
 
         {activeTab === 'ssb' && (
