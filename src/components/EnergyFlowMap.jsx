@@ -23,6 +23,11 @@ export default function EnergyFlowMap({ zonePrices }) {
   const [selectedConnection, setSelectedConnection] = useState(null);
   const [filterType, setFilterType] = useState('ALL'); // 'ALL', 'INTERNAL', 'INTERNATIONAL'
 
+  // Selected Zone Node (default to homeZone from localStorage or NO1)
+  const [selectedZoneNode, setSelectedZoneNode] = useState(() => {
+    return localStorage.getItem('norsk_kraftpuls_home_zone') || 'NO1';
+  });
+
   useEffect(() => {
     const live = calculateLiveFlows(zonePrices);
     setFlows(live);
@@ -61,6 +66,18 @@ export default function EnergyFlowMap({ zonePrices }) {
   const totalImportMW = flows.filter(f => f.isExportAbroad && !f.fromZone.startsWith('NO')).reduce((sum, f) => sum + f.flowMW, 0);
   const netExportMW = totalExportMW - totalImportMW;
 
+  // Selected Zone Node live exchange balance calculations
+  const zoneOutMW = flows
+    .filter(f => f.fromZone === selectedZoneNode)
+    .reduce((sum, f) => sum + f.flowMW, 0);
+
+  const zoneInMW = flows
+    .filter(f => f.toZone === selectedZoneNode)
+    .reduce((sum, f) => sum + f.flowMW, 0);
+
+  const zoneNetMW = zoneOutMW - zoneInMW;
+  const isZoneNetExport = zoneNetMW >= 0;
+
   return (
     <div className="space-y-8 animate-fade-in">
       
@@ -79,9 +96,9 @@ export default function EnergyFlowMap({ zonePrices }) {
         <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
           <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1 flex items-center justify-between">
             <span>Samlet Import Utland</span>
-            <Globe className="w-4 h-4 text-blue-400" />
+            <Globe className="w-4 h-4 text-rose-400" />
           </div>
-          <div className="text-3xl font-black font-mono text-blue-400">
+          <div className="text-3xl font-black font-mono text-rose-400">
             {totalImportMW.toLocaleString('no-NO')} <span className="text-sm font-normal text-slate-400">MW</span>
           </div>
         </div>
@@ -99,13 +116,26 @@ export default function EnergyFlowMap({ zonePrices }) {
           </div>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80 flex flex-col justify-between">
+        {/* Selected Zone Node Exchange Balance Card */}
+        <div className={`glass-card p-5 rounded-2xl border transition-all duration-300 ${
+          selectedZoneNode ? 'border-cyan-500/50 bg-slate-900/90 shadow-lg shadow-cyan-500/10' : 'border-slate-800 bg-slate-950/80'
+        }`}>
           <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1 flex items-center justify-between">
-            <span>Nettovervåking</span>
+            <span className="flex items-center gap-1.5 font-bold text-slate-200">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: zoneCoords[selectedZoneNode]?.color || '#06b6d4' }}></span>
+              {isZoneNetExport ? `Netto Eksport (${selectedZoneNode})` : `Netto Import (${selectedZoneNode})`}
+            </span>
             <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
           </div>
-          <div className="text-xs text-slate-300">
-            Beregner reeltidskraftflyt (MW) basert på sone-prisgradienter og Statnett linjekapasiteter.
+
+          <div className={`text-3xl font-black font-mono ${isZoneNetExport ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {Math.abs(zoneNetMW).toLocaleString('no-NO')} <span className="text-sm font-normal text-slate-400">MW</span>
+          </div>
+
+          <div className="text-xs font-mono text-slate-300 mt-1 flex items-center justify-between border-t border-slate-800/80 pt-1.5">
+            <span className="text-emerald-400">Ut: {zoneOutMW.toLocaleString()} MW</span>
+            <span className="text-slate-500">|</span>
+            <span className="text-rose-400">Inn: {zoneInMW.toLocaleString()} MW</span>
           </div>
         </div>
       </div>
@@ -122,7 +152,7 @@ export default function EnergyFlowMap({ zonePrices }) {
                   <Zap className="w-5 h-5 text-cyan-400" />
                   Interaktivt Kraftflyt-Nettverk
                 </h3>
-                <p className="text-xs text-slate-400">Levende kraftutveksling mellom NO1–NO5 og utenlandskabler</p>
+                <p className="text-xs text-slate-400">Trykk på et norsk prisområde (NO1–NO5) for å se dets reeltidsbalanse</p>
               </div>
 
               {/* Filter Toggle Buttons */}
@@ -243,19 +273,39 @@ export default function EnergyFlowMap({ zonePrices }) {
                 );
               })}
 
-              {/* Draw Norwegian Zone Nodes */}
+              {/* Draw Norwegian Zone Nodes (Clickable to select zone balance) */}
               {ZONES.map(z => {
                 const coord = zoneCoords[z.id];
                 const price = zonePrices[z.id]?.current;
+                const isSelectedNode = selectedZoneNode === z.id;
 
                 return (
-                  <g key={z.id} transform={`translate(${coord.x}, ${coord.y})`}>
+                  <g 
+                    key={z.id} 
+                    transform={`translate(${coord.x}, ${coord.y})`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedZoneNode(z.id);
+                    }}
+                    className="cursor-pointer group"
+                  >
+                    {/* Active Zone Ring Indicator */}
+                    {isSelectedNode && (
+                      <circle
+                        r="8.5"
+                        fill="none"
+                        stroke="#06b6d4"
+                        strokeWidth="1.2"
+                        strokeDasharray="2 2"
+                        className="animate-spin-slow opacity-80"
+                      />
+                    )}
                     <circle
                       r="5.5"
-                      fill="#0f172a"
+                      fill={isSelectedNode ? '#090d16' : '#0f172a'}
                       stroke={z.color}
-                      strokeWidth="1.4"
-                      className="shadow-lg"
+                      strokeWidth={isSelectedNode ? '2.2' : '1.4'}
+                      className="shadow-lg transition-all group-hover:scale-125"
                     />
                     <circle
                       r="2.2"
@@ -266,7 +316,7 @@ export default function EnergyFlowMap({ zonePrices }) {
                       x="0"
                       y="-7.0"
                       textAnchor="middle"
-                      fill="#ffffff"
+                      fill={isSelectedNode ? '#38bdf8' : '#ffffff'}
                       fontSize="3.4"
                       fontWeight="extrabold"
                     >
@@ -399,6 +449,7 @@ export default function EnergyFlowMap({ zonePrices }) {
         </div>
 
       </div>
+
     </div>
   );
 }

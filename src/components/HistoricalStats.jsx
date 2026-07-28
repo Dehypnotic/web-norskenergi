@@ -2,9 +2,25 @@ import React, { useState } from 'react';
 import { Database, TrendingUp, TrendingDown, Layers, Calendar, BarChart2, PieChart, Info, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 export default function HistoricalStats({ monthlyData = [], annualData = [], isLoading }) {
-  const [viewMode, setViewMode] = useState('MONTHLY'); // 'MONTHLY', 'ANNUAL'
-  const [selectedYear, setSelectedYear] = useState('ALL');
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('norsk_kraftpuls_ssb_view_mode') || 'MONTHLY';
+  });
+
+  const [selectedYear, setSelectedYear] = useState(() => {
+    return localStorage.getItem('norsk_kraftpuls_ssb_selected_year') || 'ALL';
+  });
+
   const [hoveredData, setHoveredData] = useState(null);
+
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem('norsk_kraftpuls_ssb_view_mode', mode);
+  };
+
+  const handleYearChange = (year) => {
+    setSelectedYear(year);
+    localStorage.setItem('norsk_kraftpuls_ssb_selected_year', year);
+  };
 
   if (isLoading) {
     return (
@@ -31,7 +47,14 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
   const totalHydro = currentDataset.reduce((sum, d) => sum + (d.hydro || 0), 0);
   const totalWind = currentDataset.reduce((sum, d) => sum + (d.wind || 0), 0);
   const totalSolar = currentDataset.reduce((sum, d) => sum + (d.solar || 0), 0);
-  const totalProd = currentDataset.reduce((sum, d) => sum + (d.totalProd || (d.hydro + d.wind + d.solar)), 0);
+  const totalThermal = currentDataset.reduce((sum, d) => sum + (d.thermal || 0), 0);
+  const totalProd = currentDataset.reduce((sum, d) => sum + (d.totalProd || (d.hydro + d.wind + d.solar + (d.thermal || 0))), 0);
+
+  const totalGen = Math.max(1, totalHydro + totalWind + totalSolar + totalThermal);
+  const hydroPct = ((totalHydro / totalGen) * 100).toFixed(1);
+  const windPct = ((totalWind / totalGen) * 100).toFixed(1);
+  const solarPct = ((totalSolar / totalGen) * 100).toFixed(1);
+  const thermalPct = ((totalThermal / totalGen) * 100).toFixed(1);
 
   const netSharePercent = totalProd > 0 ? ((Math.abs(netExport) / totalProd) * 100).toFixed(1) : '0.0';
 
@@ -58,7 +81,7 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           {/* Monthly vs Annual Toggle */}
           <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-semibold">
             <button
-              onClick={() => setViewMode('MONTHLY')}
+              onClick={() => handleViewModeChange('MONTHLY')}
               className={`px-3 py-1.5 rounded-lg transition-all ${
                 viewMode === 'MONTHLY' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
               }`}
@@ -66,7 +89,7 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
               Månedlig (GWh)
             </button>
             <button
-              onClick={() => setViewMode('ANNUAL')}
+              onClick={() => handleViewModeChange('ANNUAL')}
               className={`px-3 py-1.5 rounded-lg transition-all ${
                 viewMode === 'ANNUAL' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
               }`}
@@ -79,7 +102,7 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           {viewMode === 'MONTHLY' && (
             <select
               value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
+              onChange={(e) => handleYearChange(e.target.value)}
               className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500"
             >
               <option value="ALL">Siste 36 Måneder</option>
@@ -131,13 +154,17 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           </div>
         </div>
 
+        {/* Vannkraftandel Card (Uniform Height with other 3 KPI cards) */}
         <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
           <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
             <span>Vannkraftandel</span>
             <PieChart className="w-4 h-4 text-blue-400" />
           </div>
           <div className="text-2xl font-black font-mono text-blue-400">
-            {((totalHydro / Math.max(1, totalHydro + totalWind + totalSolar)) * 100).toFixed(1)}%
+            {hydroPct}%
+          </div>
+          <div className="text-[11px] text-slate-400 font-mono mt-1">
+            av samlet produksjon
           </div>
         </div>
       </div>
@@ -266,41 +293,67 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
 
       </div>
 
-      {/* Production Mix Breakdown (Vann, Vind, Sol, Varme) */}
+      {/* Production Mix Breakdown under Graph (Vann, Vind, Sol, Varme) */}
       <div className="glass-card p-6 rounded-2xl border border-slate-800 bg-slate-950/80">
         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
           <Layers className="w-5 h-5 text-cyan-400" />
           Energikilder for Norsk Kraftproduksjon
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Vannkraft */}
           <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60">
-            <div className="text-xs text-slate-400 font-medium">Vannkraft (Dominant)</div>
+            <div className="text-xs text-slate-400 font-medium flex items-center justify-between">
+              <span>Vannkraft</span>
+              <span className="text-cyan-400 font-bold font-mono text-sm">{hydroPct}%</span>
+            </div>
             <div className="text-2xl font-black text-blue-400 font-mono mt-1">
               {totalHydro.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className="bg-blue-500 h-full rounded-full" style={{ width: '92%' }}></div>
+              <div className="bg-blue-500 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(5, hydroPct))}%` }}></div>
             </div>
           </div>
 
+          {/* Vindkraft */}
           <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60">
-            <div className="text-xs text-slate-400 font-medium">Vindkraft (Land & Hav)</div>
-            <div className="text-2xl font-black text-cyan-400 font-mono mt-1">
+            <div className="text-xs text-slate-400 font-medium flex items-center justify-between">
+              <span>Vindkraft</span>
+              <span className="text-teal-300 font-bold font-mono text-sm">{windPct}%</span>
+            </div>
+            <div className="text-2xl font-black text-teal-400 font-mono mt-1">
               {totalWind.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className="bg-cyan-400 h-full rounded-full" style={{ width: '7%' }}></div>
+              <div className="bg-teal-400 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(5, windPct))}%` }}></div>
             </div>
           </div>
 
+          {/* Solkraft */}
           <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60">
-            <div className="text-xs text-slate-400 font-medium">Solkraft & Varme</div>
+            <div className="text-xs text-slate-400 font-medium flex items-center justify-between">
+              <span>Solkraft</span>
+              <span className="text-amber-300 font-bold font-mono text-sm">{solarPct}%</span>
+            </div>
             <div className="text-2xl font-black text-amber-400 font-mono mt-1">
-              {(totalSolar + 120).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+              {totalSolar.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className="bg-amber-400 h-full rounded-full" style={{ width: '1%' }}></div>
+              <div className="bg-amber-400 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(3, solarPct))}%` }}></div>
+            </div>
+          </div>
+
+          {/* Varmekraft */}
+          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60">
+            <div className="text-xs text-slate-400 font-medium flex items-center justify-between">
+              <span>Varmekraft</span>
+              <span className="text-purple-300 font-bold font-mono text-sm">{thermalPct}%</span>
+            </div>
+            <div className="text-2xl font-black text-purple-400 font-mono mt-1">
+              {totalThermal.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+              <div className="bg-purple-400 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(3, thermalPct))}%` }}></div>
             </div>
           </div>
         </div>

@@ -36,6 +36,27 @@ export function calculateStromstotte(nokPerKwh, includeVat = true) {
 }
 
 /**
+ * Returns future-proof Norgespris (base rate 40 øre/kWh excl. VAT, easily updated annually)
+ * Returns price in øre/kWh
+ */
+export function getNorgespris(date = new Date(), includeVat = true, isNo4 = false) {
+  const year = date ? new Date(date).getFullYear() : new Date().getFullYear();
+  // Yearly Norgespris base rates excl. VAT (øre/kWh)
+  const yearlyRatesExVat = {
+    2024: 40,
+    2025: 40,
+    2026: 40,
+    2027: 40,
+    2028: 40,
+  };
+
+  const baseExVat = yearlyRatesExVat[year] || 40;
+  const vatFactor = (includeVat && !isNo4) ? 1.25 : 1.0;
+  
+  return baseExVat * vatFactor;
+}
+
+/**
  * Formats a date object to YYYY/MM-DD format needed by API
  */
 function formatDateForApi(date = new Date()) {
