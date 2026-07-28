@@ -52,7 +52,7 @@ export function calculateLiveFlows(zonePrices = {}) {
 
   const hour = new Date().getHours();
   // Peak demand multiplier
-  const demandFactor = Math.sin((hour - 6) * Math.PI / 12) * 0.2 + 0.85;
+  const demandFactor = Math.sin((hour - 6) * Math.PI / 12) * 0.15 + 0.90;
 
   return CONNECTIONS.map(conn => {
     const pSource = zonePrices[conn.source] ? getPrice(conn.source) : (foreignPrices[conn.source] || 0.80);
@@ -61,11 +61,13 @@ export function calculateLiveFlows(zonePrices = {}) {
     // Power flows from lower price region to higher price region
     const priceDelta = pTarget - pSource;
     
-    // Utilization percentage (0% to 95%) based on price delta
-    let utilization = Math.min(0.95, Math.abs(priceDelta) / 0.40);
-    if (utilization < 0.15) utilization = 0.15 + (Math.sin(conn.capacityMW) * 0.05);
+    // Utilization percentage (0% to 100%) based on price delta
+    let rawUtil = Math.min(1.0, Math.abs(priceDelta) / 0.30);
+    if (rawUtil < 0.15) rawUtil = 0.15 + (Math.sin(conn.capacityMW) * 0.05);
 
-    let flowMW = Math.round(conn.capacityMW * utilization * demandFactor);
+    let flowMW = Math.min(conn.capacityMW, Math.round(conn.capacityMW * rawUtil * demandFactor));
+    let utilizationPercent = Math.min(100, Math.round((flowMW / conn.capacityMW) * 100));
+
     let fromZone = conn.source;
     let toZone = conn.target;
 
@@ -82,9 +84,9 @@ export function calculateLiveFlows(zonePrices = {}) {
       fromZone,
       toZone,
       flowMW,
-      utilizationPercent: Math.round(utilization * 100),
+      utilizationPercent,
       isExportAbroad,
-      status: utilization > 0.85 ? 'HIGH_LOAD' : utilization > 0.40 ? 'NORMAL' : 'LOW_LOAD'
+      status: utilizationPercent > 85 ? 'HIGH_LOAD' : utilizationPercent > 40 ? 'NORMAL' : 'LOW_LOAD'
     };
   });
 }
