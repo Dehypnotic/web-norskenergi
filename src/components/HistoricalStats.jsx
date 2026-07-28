@@ -36,8 +36,12 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
     ? monthlyData.slice(-36) // Last 3 years of monthly data for readable chart
     : monthlyData.filter(d => String(d.year) === String(selectedYear));
 
-  // Compute aggregate stats for current view
-  const currentDataset = viewMode === 'MONTHLY' ? displayMonthly : annualData;
+  // Filter annual data from 1960 onwards for smooth annual progression
+  const displayAnnual = annualData.filter(d => d.year >= 1960);
+  const currentDataset = viewMode === 'MONTHLY' ? displayMonthly : displayAnnual;
+
+  const latestAnnualYear = displayAnnual.length > 0 ? displayAnnual[displayAnnual.length - 1].year : 2025;
+  const annualRangeLabel = `Årlig (1960–${latestAnnualYear})`;
 
   const totalImport = currentDataset.reduce((sum, d) => sum + (d.import || 0), 0);
   const totalExport = currentDataset.reduce((sum, d) => sum + (d.export || 0), 0);
@@ -94,7 +98,7 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                 viewMode === 'ANNUAL' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
-              Årlig (1970–2025)
+              {annualRangeLabel}
             </button>
           </div>
 
@@ -207,88 +211,84 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           )}
         </div>
 
-        {/* Custom High-Performance Bar/Line Graph with Top Padding */}
-        <div className="h-80 flex items-end gap-1 sm:gap-2 pt-16 pb-1 border-b border-slate-800/80 px-2 overflow-x-auto">
-          {currentDataset.map((item, idx) => {
-            const exp = item.export || 0;
-            const imp = item.import || 0;
-            const net = item.netExport || 0;
-
-            const maxVal = Math.max(...currentDataset.map(d => Math.max(d.export || 0, d.import || 0, Math.abs(d.netExport || 0))), 100);
+        {/* Custom High-Performance Bar/Line Graph */}
+        <div className={`w-full ${viewMode === 'MONTHLY' ? '' : 'overflow-x-auto'}`}>
+          <div className={`min-w-full ${viewMode === 'ANNUAL' ? 'min-w-[750px]' : ''}`}>
             
-            const expHeight = (exp / maxVal) * 100;
-            const impHeight = (imp / maxVal) * 100;
+            {/* Bars Container */}
+            <div className="h-72 flex items-end gap-1 sm:gap-2 pt-16 pb-1 border-b border-slate-800/80 px-2">
+              {currentDataset.map((item, idx) => {
+                const exp = item.export || 0;
+                const imp = item.import || 0;
+                const net = item.netExport || 0;
 
-            const label = viewMode === 'MONTHLY' ? item.label : String(item.year);
-            const isHovered = hoveredData?.label === label;
-
-            return (
-              <div 
-                key={idx} 
-                onMouseEnter={() => setHoveredData({ ...item, label })}
-                onMouseLeave={() => setHoveredData(null)}
-                className="flex-1 min-w-[20px] flex flex-col items-center h-full justify-end group relative cursor-pointer"
-              >
+                const maxVal = Math.max(...currentDataset.map(d => Math.max(d.export || 0, d.import || 0, Math.abs(d.netExport || 0))), 100);
                 
-                {/* Hover Tooltip (Positioned safely inside top padded area) */}
-                <div className={`transition-opacity duration-200 absolute top-0 z-30 bg-slate-900/95 border border-slate-700 text-white text-[11px] font-mono px-2.5 py-1.5 rounded-lg shadow-2xl whitespace-nowrap pointer-events-none ${
-                  isHovered ? 'opacity-100' : 'opacity-0'
-                }`}>
-                  <div className="font-bold text-slate-200 border-b border-slate-800 pb-0.5 mb-1">{label}</div>
-                  <div className="text-emerald-400">Eksport: {exp.toLocaleString()} GWh</div>
-                  <div className="text-rose-400">Import: {imp.toLocaleString()} GWh</div>
-                  <div className="text-cyan-400 font-bold">Nett: {net >= 0 ? `+${net.toLocaleString()}` : net.toLocaleString()} GWh</div>
-                </div>
+                const expHeight = (exp / maxVal) * 100;
+                const impHeight = (imp / maxVal) * 100;
 
-                {/* Bars Container - Sits flat on baseline */}
-                <div className="flex items-end gap-0.5 w-full h-full justify-center">
-                  {/* Export Bar */}
-                  <div
-                    className={`w-1/2 rounded-t transition-all ${isHovered ? 'bg-emerald-400 shadow-lg shadow-emerald-500/30 ring-1 ring-emerald-300' : 'bg-emerald-500/80 hover:bg-emerald-400'}`}
-                    style={{ height: `${Math.max(4, expHeight)}%` }}
-                  />
-                  {/* Import Bar */}
-                  <div
-                    className={`w-1/2 rounded-t transition-all ${isHovered ? 'bg-rose-400 shadow-lg shadow-rose-500/30 ring-1 ring-rose-300' : 'bg-rose-500/80 hover:bg-rose-400'}`}
-                    style={{ height: `${Math.max(4, impHeight)}%` }}
-                  />
-                </div>
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
+                const label = viewMode === 'MONTHLY' 
+                  ? (item.month ? monthNames[item.month - 1] : (item.label || ''))
+                  : String(item.year);
 
-              </div>
-            );
-          })}
-        </div>
+                const isHovered = hoveredData?.label === label;
 
-        {/* Dedicated Clean X-axis Timeline Row */}
-        <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono pt-2 px-2">
-          {viewMode === 'MONTHLY' ? (
-            selectedYear === 'ALL' ? (
-              <div className="flex justify-between w-full px-2">
-                <span>2023 (Jan-Des)</span>
-                <span>2024 (Jan-Des)</span>
-                <span>2025 (Jan-Des)</span>
-                <span>2026 (Jan-Jun)</span>
-              </div>
-            ) : (
-              <div className="flex w-full">
-                {currentDataset.map((item, idx) => {
-                  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
-                  const monthLabel = item.month ? monthNames[item.month - 1] : (item.label || '');
-                  return (
-                    <div key={idx} className="flex-1 text-center font-bold text-slate-300">
-                      {monthLabel}
+                return (
+                  <div 
+                    key={idx} 
+                    onMouseEnter={() => setHoveredData({ ...item, label })}
+                    onMouseLeave={() => setHoveredData(null)}
+                    className="flex-1 min-w-[10px] flex flex-col items-center h-full justify-end group relative cursor-pointer"
+                  >
+                    
+                    {/* Bars */}
+                    <div className="flex items-end gap-0.5 w-full h-full justify-center">
+                      <div
+                        className={`w-1/2 rounded-t transition-all ${isHovered ? 'bg-emerald-400 shadow-lg shadow-emerald-500/30 ring-1 ring-emerald-300' : 'bg-emerald-500/80 hover:bg-emerald-400'}`}
+                        style={{ height: `${Math.max(4, expHeight)}%` }}
+                      />
+                      <div
+                        className={`w-1/2 rounded-t transition-all ${isHovered ? 'bg-rose-400 shadow-lg shadow-rose-500/30 ring-1 ring-rose-300' : 'bg-rose-500/80 hover:bg-rose-400'}`}
+                        style={{ height: `${Math.max(4, impHeight)}%` }}
+                      />
                     </div>
-                  );
-                })}
-              </div>
-            )
-          ) : (
-            <div className="flex justify-between w-full px-2">
-              {[1970, 1980, 1990, 2000, 2010, 2020, 2025].map(y => (
-                <span key={y}>{y}</span>
-              ))}
+
+                  </div>
+                );
+              })}
             </div>
-          )}
+
+            {/* Synchronized X-axis Timeline Row Inside Scroll Wrapper */}
+            <div className="flex justify-between items-center text-[11px] text-slate-400 font-mono pt-2 px-2">
+              {viewMode === 'MONTHLY' ? (
+                <div className="flex w-full">
+                  {currentDataset.map((item, idx) => {
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
+                    const monthLabel = item.month ? monthNames[item.month - 1] : (item.label || '');
+                    return (
+                      <div key={idx} className="flex-1 text-center font-bold text-slate-300">
+                        {monthLabel}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex w-full">
+                  {currentDataset.map((item, idx) => {
+                    const year = item.year;
+                    const showLabel = year % 5 === 0 || year === 1970 || year === 2025;
+                    return (
+                      <div key={idx} className="flex-1 text-center text-[10px] text-slate-400 font-mono">
+                        {showLabel ? year : ''}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+          </div>
         </div>
 
       </div>
