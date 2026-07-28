@@ -355,8 +355,24 @@ export default function ZonePrices({ zonePrices, isLoading }) {
             const effectiveOre = support.hasSubsidy ? (support.effectivePricePerKwh * 100) : rawOre;
             const displayOre = includeStromstotte ? effectiveOre : rawOre;
 
-            const norgesprisOre = getNorgespris(selectedDate, includeVat, isNo4);
-            const deltaFromNorgespris = displayOre - norgesprisOre;
+            // Calculate Min, Avg, Max for this zone based on whether strømstøtte is toggled
+            const hourlyList = data.hourlyPrices || [];
+            let zoneMinOre = (data.min || 0) * vatFactor * 100;
+            let zoneMaxOre = (data.max || 0) * vatFactor * 100;
+            let zoneAvgOre = (data.avg || 0) * vatFactor * 100;
+
+            if (includeStromstotte && hourlyList.length > 0) {
+              const effectiveHourlyOre = hourlyList.map(h => {
+                const hNok = h.NOK_per_kWh;
+                const hRawOre = hNok * vatFactor * 100;
+                const hSupport = calculateStromstotte(hNok, includeVat && !isNo4);
+                return hSupport.hasSubsidy ? (hSupport.effectivePricePerKwh * 100) : hRawOre;
+              });
+
+              zoneMinOre = Math.min(...effectiveHourlyOre);
+              zoneMaxOre = Math.max(...effectiveHourlyOre);
+              zoneAvgOre = effectiveHourlyOre.reduce((sum, val) => sum + val, 0) / effectiveHourlyOre.length;
+            }
 
             return (
               <div
@@ -429,19 +445,19 @@ export default function ZonePrices({ zonePrices, isLoading }) {
                   <div>
                     <div className="text-slate-500">Min</div>
                     <div className="font-mono text-slate-300 font-medium">
-                      {( (data.min || 0) * vatFactor * 100 ).toFixed(1)}
+                      {zoneMinOre.toFixed(1)}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-500">Snitt</div>
                     <div className="font-mono text-slate-300 font-medium">
-                      {( (data.avg || 0) * vatFactor * 100 ).toFixed(1)}
+                      {zoneAvgOre.toFixed(1)}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-500">Maks</div>
                     <div className="font-mono text-slate-300 font-medium">
-                      {( (data.max || 0) * vatFactor * 100 ).toFixed(1)}
+                      {zoneMaxOre.toFixed(1)}
                     </div>
                   </div>
                 </div>
