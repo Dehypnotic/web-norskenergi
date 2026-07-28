@@ -418,7 +418,7 @@ export default function ZonePrices({ zonePrices, isLoading }) {
                       </div>
                     ) : (
                       <div className="text-[10px] text-slate-500 italic">
-                        Under støtteterskel (73ø)
+                        Under støtteterskel (73 øre)
                       </div>
                     )}
                   </div>
