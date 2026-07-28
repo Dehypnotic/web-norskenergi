@@ -255,16 +255,16 @@ export default function EnergyFlowMap({ zonePrices }) {
                         rx="1.5"
                         fill="#090d16"
                         stroke={flow.isExportAbroad ? '#10b981' : '#06b6d4'}
-                        strokeWidth="0.6"
+                        strokeWidth="0.7"
                       />
                       <text
                         x="0"
-                        y="1.3"
+                        y="1.4"
                         textAnchor="middle"
                         fill="#ffffff"
-                        fontSize="2.4"
+                        fontSize="3.0"
                         fontFamily="monospace"
-                        fontWeight="bold"
+                        fontWeight="black"
                       >
                         {flow.flowMW} MW
                       </text>
@@ -292,45 +292,45 @@ export default function EnergyFlowMap({ zonePrices }) {
                     {/* Active Zone Ring Indicator */}
                     {isSelectedNode && (
                       <circle
-                        r="8.5"
+                        r="11.0"
                         fill="none"
                         stroke="#06b6d4"
-                        strokeWidth="1.2"
+                        strokeWidth="1.4"
                         strokeDasharray="2 2"
                         className="animate-spin-slow opacity-80"
                       />
                     )}
                     <circle
-                      r="5.5"
+                      r="7.5"
                       fill={isSelectedNode ? '#090d16' : '#0f172a'}
                       stroke={z.color}
-                      strokeWidth={isSelectedNode ? '2.2' : '1.4'}
+                      strokeWidth={isSelectedNode ? '2.5' : '1.6'}
                       className="shadow-lg transition-all group-hover:scale-125"
                     />
                     <circle
-                      r="2.2"
+                      r="2.6"
                       fill={z.color}
                       className="animate-ping opacity-50"
                     />
                     <text
                       x="0"
-                      y="-7.0"
+                      y="-9.2"
                       textAnchor="middle"
                       fill={isSelectedNode ? '#38bdf8' : '#ffffff'}
-                      fontSize="3.4"
-                      fontWeight="extrabold"
+                      fontSize="4.0"
+                      fontWeight="black"
                     >
                       {z.id}
                     </text>
                     {price !== undefined && (
                       <text
                         x="0"
-                        y="1.2"
+                        y="1.4"
                         textAnchor="middle"
                         fill="#38bdf8"
-                        fontSize="2.4"
+                        fontSize="3.0"
                         fontFamily="monospace"
-                        fontWeight="bold"
+                        fontWeight="extrabold"
                       >
                         {(price * 100).toFixed(0)} øre
                       </text>
@@ -356,9 +356,9 @@ export default function EnergyFlowMap({ zonePrices }) {
                     x="0"
                     y="-1.2"
                     textAnchor="middle"
-                    fill="#cbd5e1"
-                    fontSize="2.5"
-                    fontWeight="bold"
+                    fill="#f1f5f9"
+                    fontSize="3.1"
+                    fontWeight="black"
                   >
                     {fc.flag} {fc.id}
                   </text>
@@ -367,9 +367,9 @@ export default function EnergyFlowMap({ zonePrices }) {
                     y="3.8"
                     textAnchor="middle"
                     fill="#38bdf8"
-                    fontSize="2.3"
+                    fontSize="2.8"
                     fontFamily="monospace"
-                    fontWeight="bold"
+                    fontWeight="extrabold"
                   >
                     {(fc.priceNok * 100).toFixed(0)} øre
                   </text>
