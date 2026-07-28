@@ -40,8 +40,9 @@ export function getMonthlyPriceHistoryForYear(year = 2026) {
   const yearData = ANNUAL_BENCHMARKS[year] || ANNUAL_BENCHMARKS[2026];
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
   
-  // For 2026, limit up to July (current month)
-  const maxMonth = year === 2026 ? 7 : 12;
+  // Begrens til inneværende måned hvis vi ser på det gjeldende året
+  const today = new Date();
+  const maxMonth = year === today.getFullYear() ? (today.getMonth() + 1) : 12;
 
   return monthNames.slice(0, maxMonth).map((monthName, idx) => {
     const monthNum = idx + 1;
@@ -74,7 +75,17 @@ export function getMonthlyPriceHistoryForYear(year = 2026) {
  * Returns daily average spot prices for all days in a given year and month
  */
 export function getDailyPriceHistoryForMonth(year = 2026, month = 7) {
-  const daysInMonth = new Date(year, month, 0).getDate();
+  const today = new Date();
+  let daysInMonth = new Date(year, month, 0).getDate();
+  
+  if (year === today.getFullYear() && month === (today.getMonth() + 1)) {
+    // For gjeldende måned, vis kun til og med dagens dato
+    daysInMonth = Math.min(daysInMonth, today.getDate());
+  } else if (year > today.getFullYear() || (year === today.getFullYear() && month > (today.getMonth() + 1))) {
+    // Returner tom liste for fremtidige måneder
+    return [];
+  }
+
   const yearData = ANNUAL_BENCHMARKS[year] || ANNUAL_BENCHMARKS[2026];
   const seasonMult = MONTH_SEASONALITY[month - 1] || 1.0;
   

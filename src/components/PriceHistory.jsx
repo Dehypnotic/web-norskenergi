@@ -32,6 +32,15 @@ export default function PriceHistory() {
     const numYear = Number(yr);
     setSelectedYear(numYear);
     localStorage.setItem('norsk_kraftpuls_ph_year', numYear);
+
+    const today = new Date();
+    if (numYear === today.getFullYear()) {
+      const maxMonth = today.getMonth() + 1;
+      if (selectedMonth > maxMonth) {
+        setSelectedMonth(maxMonth);
+        localStorage.setItem('norsk_kraftpuls_ph_month', maxMonth);
+      }
+    }
   };
 
   const handleMonthChange = (mn) => {
@@ -179,11 +188,15 @@ export default function PriceHistory() {
                 onChange={(e) => handleMonthChange(e.target.value)}
                 className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-bold rounded-xl px-3 py-1.5 outline-none focus:border-cyan-500"
               >
-                {monthNames.map((mName, mIdx) => (
+                {(() => {
+                const today = new Date();
+                const maxMonth = selectedYear === today.getFullYear() ? (today.getMonth() + 1) : 12;
+                return monthNames.slice(0, maxMonth).map((mName, mIdx) => (
                   <option key={mIdx + 1} value={mIdx + 1}>
                     {mName}
                   </option>
-                ))}
+                ));
+              })()}
               </select>
             </div>
           )}
