@@ -292,7 +292,7 @@ export default function EnergyFlowMap({ zonePrices }) {
                     {/* Active Zone Ring Indicator */}
                     {isSelectedNode && (
                       <circle
-                        r="11.0"
+                        r="12.5"
                         fill="none"
                         stroke="#06b6d4"
                         strokeWidth="1.4"
@@ -301,7 +301,7 @@ export default function EnergyFlowMap({ zonePrices }) {
                       />
                     )}
                     <circle
-                      r="7.5"
+                      r={isSelectedNode ? '8.8' : '7.5'}
                       fill={isSelectedNode ? '#090d16' : '#0f172a'}
                       stroke={z.color}
                       strokeWidth={isSelectedNode ? '2.5' : '1.6'}
@@ -314,7 +314,7 @@ export default function EnergyFlowMap({ zonePrices }) {
                     />
                     <text
                       x="0"
-                      y="-9.2"
+                      y={isSelectedNode ? '-10.5' : '-9.2'}
                       textAnchor="middle"
                       fill={isSelectedNode ? '#38bdf8' : '#ffffff'}
                       fontSize="4.0"
