@@ -270,7 +270,7 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
             <BarChart2 className="w-5 h-5 text-cyan-400" />
             {categoryMode === 'EXPORT_IMPORT'
               ? (viewMode === 'MONTHLY' ? 'Månedlig Import, Eksport & Nettbalanse' : 'Årlig Utvikling i Norsk Krafthandel (GWh)')
-              : (viewMode === 'MONTHLY' ? 'Månedlig Produksjon & Nettoforbruk' : 'Årlig Produksjon, Nettoforbruk & Energitap (GWh)')
+              : (viewMode === 'MONTHLY' ? 'Månedlig Produksjon & Forbruk' : 'Årlig Produksjon & Forbruk (GWh)')
             }
           </h3>
 
@@ -299,6 +299,7 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                 <span className="w-2.5 h-2.5 rounded bg-orange-500 inline-block"></span> Varme
               </span>
               <span className="text-slate-600">|</span>
+              <span className="text-slate-400 font-bold">Bruttoforbruk:</span>
               <span className="flex items-center gap-1 text-indigo-400 font-bold">
                 <span className="w-2.5 h-2.5 rounded bg-indigo-500 inline-block"></span> Nettoforbruk
               </span>
