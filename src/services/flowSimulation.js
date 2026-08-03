@@ -23,14 +23,14 @@ export const CONNECTIONS = [
 ];
 
 export const FOREIGN_COUNTRIES = [
-  { id: 'SE3', name: 'Sverige (SE3)', x: 140, y: 120, flag: '🇸🇪', priceNok: 0.78 },
-  { id: 'SE2', name: 'Sverige (SE2)', x: 145, y: 80, flag: '🇸🇪', priceNok: 0.48 },
-  { id: 'SE1', name: 'Sverige (SE1)', x: 155, y: 45, flag: '🇸🇪', priceNok: 0.40 },
+  { id: 'SE3', name: 'Sverige (SE3)', x: 140, y: 135, flag: '🇸🇪', priceNok: 0.78 },
+  { id: 'SE2', name: 'Sverige (SE2)', x: 145, y: 90, flag: '🇸🇪', priceNok: 0.48 },
+  { id: 'SE1', name: 'Sverige (SE1)', x: 155, y: 48, flag: '🇸🇪', priceNok: 0.40 },
   { id: 'FI', name: 'Finland', x: 160, y: 20, flag: '🇫🇮', priceNok: 0.52 },
-  { id: 'DK1', name: 'Danmark (DK1)', x: 55, y: 172, flag: '🇩🇰', priceNok: 1.15 },
-  { id: 'DE', name: 'Tyskland (DE)', x: 90, y: 172, flag: '🇩🇪', priceNok: 1.35 },
-  { id: 'NL', name: 'Nederland (NL)', x: 22, y: 168, flag: '🇳🇱', priceNok: 1.25 },
-  { id: 'UK', name: 'Storbritannia (UK)', x: 12, y: 130, flag: '🇬🇧', priceNok: 1.45 },
+  { id: 'DK1', name: 'Danmark (DK1)', x: 55, y: 196, flag: '🇩🇰', priceNok: 1.15 },
+  { id: 'DE', name: 'Tyskland (DE)', x: 90, y: 196, flag: '🇩🇪', priceNok: 1.35 },
+  { id: 'NL', name: 'Nederland (NL)', x: 22, y: 192, flag: '🇳🇱', priceNok: 1.25 },
+  { id: 'UK', name: 'Storbritannia (UK)', x: 12, y: 145, flag: '🇬🇧', priceNok: 1.45 },
 ];
 
 /**

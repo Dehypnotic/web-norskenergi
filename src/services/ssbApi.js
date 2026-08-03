@@ -139,11 +139,20 @@ function processMonthlySSBData(jsonStat) {
     }
   });
 
-  // Calculate net balance (Export - Import)
-  const resultList = Object.values(seriesByTime).map(item => ({
-    ...item,
-    netExport: (item.export || 0) - (item.import || 0)
-  }));
+  // Calculate net balance and grid loss (Bruttoforbruk - Nettoforbruk)
+  const resultList = Object.values(seriesByTime).map(item => {
+    const gross = item.grossConsumption || ((item.totalProd || 0) + (item.import || 0) - (item.export || 0));
+    const netCons = item.netConsumption || Math.round(gross * 0.915);
+    const gridLoss = Math.max(0, gross - netCons);
+
+    return {
+      ...item,
+      grossConsumption: gross,
+      netConsumption: netCons,
+      gridLoss,
+      netExport: (item.export || 0) - (item.import || 0)
+    };
+  });
 
   return resultList;
 }
@@ -218,16 +227,25 @@ function processAnnualSSBData(jsonStat) {
         case 'Solkraft': seriesByYear[yearStr].solar = valGWh; break;
         case 'Import': seriesByYear[yearStr].import = valGWh; break;
         case 'Eksport': seriesByYear[yearStr].export = valGWh; break;
-        case 'Bruttoforbruk': seriesByYear[yearStr].consumption = valGWh; break;
+        case 'Bruttoforbruk': seriesByYear[yearStr].grossConsumption = valGWh; break;
         default: break;
       }
     }
   });
 
-  return Object.values(seriesByYear).map(y => ({
-    ...y,
-    netExport: (y.export || 0) - (y.import || 0)
-  }));
+  return Object.values(seriesByYear).map(y => {
+    const gross = y.grossConsumption || ((y.totalProd || 0) + (y.import || 0) - (y.export || 0));
+    const netCons = y.netConsumption || Math.round(gross * 0.915);
+    const gridLoss = Math.max(0, gross - netCons);
+
+    return {
+      ...y,
+      grossConsumption: gross,
+      netConsumption: netCons,
+      gridLoss,
+      netExport: (y.export || 0) - (y.import || 0)
+    };
+  });
 }
 
 /**
@@ -253,7 +271,8 @@ function getFallbackMonthlyData() {
       const importVal = Math.round(700 / winterFactor + (year % 2 === 0 ? 150 : 50));
       const exportVal = Math.round(1900 * winterFactor);
       const grossConsumption = totalProd + importVal - exportVal;
-      const netConsumption = Math.round(grossConsumption * 0.91);
+      const netConsumption = Math.round(grossConsumption * 0.915);
+      const gridLoss = grossConsumption - netConsumption;
 
       months.push({
         timeKey: `${year}M${monthStr}`,
@@ -269,7 +288,8 @@ function getFallbackMonthlyData() {
         export: exportVal,
         netExport: exportVal - importVal,
         grossConsumption,
-        netConsumption
+        netConsumption,
+        gridLoss
       });
     }
   });
@@ -278,20 +298,23 @@ function getFallbackMonthlyData() {
 }
 
 /**
- * Curated fallback annual data (1970-2025 GWh)
+ * Curated fallback annual data (1960-2025 GWh)
  */
 function getFallbackAnnualData() {
   const years = [];
-  for (let y = 1970; y <= 2025; y++) {
-    const progress = (y - 1970) / 55; // 0 to 1
-    const hydro = Math.round(55000 + progress * 80000 + Math.sin(y) * 6000);
-    const wind = y >= 2005 ? Math.round(Math.pow(y - 2004, 1.45) * 650) : 50;
+  for (let y = 1960; y <= 2025; y++) {
+    const progress = (y - 1960) / 65; // 0 to 1
+    const hydro = Math.round(31000 + progress * 105000 + Math.sin(y * 0.8) * 5000);
+    const wind = y >= 2005 ? Math.round(Math.pow(y - 2004, 1.45) * 650) : 0;
     const solar = y >= 2018 ? Math.round((y - 2017) * 90) : 0;
-    const totalProd = hydro + wind + solar + 2000;
+    const thermal = Math.round(800 + Math.sin(y * 0.5) * 400 + progress * 1500);
+    const totalProd = hydro + wind + solar + thermal;
 
-    const importVal = Math.round(4000 + Math.cos(y * 0.7) * 3000 + (y % 4 === 0 ? 3000 : 0));
-    const exportVal = Math.round(8000 + progress * 14000 + Math.sin(y * 0.9) * 4000);
-    const consumption = totalProd + importVal - exportVal;
+    const importVal = Math.round(2000 + Math.cos(y * 0.7) * 2000 + (y % 4 === 0 ? 2000 : 0));
+    const exportVal = Math.round(3000 + progress * 18000 + Math.sin(y * 0.9) * 4000);
+    const grossConsumption = Math.max(1000, totalProd + importVal - exportVal);
+    const netConsumption = Math.round(grossConsumption * 0.915);
+    const gridLoss = grossConsumption - netConsumption;
 
     years.push({
       year: y,
@@ -299,10 +322,13 @@ function getFallbackAnnualData() {
       hydro,
       wind,
       solar,
+      thermal,
       import: importVal,
       export: exportVal,
       netExport: exportVal - importVal,
-      consumption
+      grossConsumption,
+      netConsumption,
+      gridLoss
     });
   }
 

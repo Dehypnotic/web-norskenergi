@@ -39,21 +39,21 @@ export default function EnergyFlowMap({ zonePrices }) {
     return () => clearInterval(timer);
   }, [zonePrices]);
 
-  // Zone coordinates on expanded SVG network canvas (0-180 x 0-185 viewbox)
+  // Zone coordinates on expanded SVG network canvas (0-180 x 0-210 viewbox)
   const zoneCoords = {
-    NO4: { x: 115, y: 30, name: 'NO4 (Nord-Norge)', color: '#8b5cf6' },
-    NO3: { x: 85, y: 70, name: 'NO3 (Midt-Norge)', color: '#f59e0b' },
-    NO5: { x: 40, y: 100, name: 'NO5 (Vestlandet)', color: '#ec4899' },
-    NO1: { x: 90, y: 115, name: 'NO1 (Østlandet)', color: '#3b82f6' },
-    NO2: { x: 55, y: 145, name: 'NO2 (Sørlandet)', color: '#10b981' },
-    SE3: { x: 140, y: 120, name: 'Sverige SE3', color: '#64748b' },
-    SE2: { x: 145, y: 80, name: 'Sverige SE2', color: '#64748b' },
-    SE1: { x: 155, y: 45, name: 'Sverige SE1', color: '#64748b' },
+    NO4: { x: 115, y: 32, name: 'NO4 (Nord-Norge)', color: '#8b5cf6' },
+    NO3: { x: 85, y: 78, name: 'NO3 (Midt-Norge)', color: '#f59e0b' },
+    NO5: { x: 40, y: 112, name: 'NO5 (Vestlandet)', color: '#ec4899' },
+    NO1: { x: 90, y: 130, name: 'NO1 (Østlandet)', color: '#3b82f6' },
+    NO2: { x: 55, y: 164, name: 'NO2 (Sørlandet)', color: '#10b981' },
+    SE3: { x: 140, y: 135, name: 'Sverige SE3', color: '#64748b' },
+    SE2: { x: 145, y: 90, name: 'Sverige SE2', color: '#64748b' },
+    SE1: { x: 155, y: 48, name: 'Sverige SE1', color: '#64748b' },
     FI: { x: 160, y: 20, name: 'Finland FI', color: '#64748b' },
-    DK1: { x: 55, y: 172, name: 'Danmark DK1', color: '#64748b' },
-    DE: { x: 90, y: 172, name: 'Tyskland DE', color: '#64748b' },
-    NL: { x: 22, y: 168, name: 'Nederland NL', color: '#64748b' },
-    UK: { x: 12, y: 130, name: 'Storbritannia UK', color: '#64748b' },
+    DK1: { x: 55, y: 196, name: 'Danmark DK1', color: '#64748b' },
+    DE: { x: 90, y: 196, name: 'Tyskland DE', color: '#64748b' },
+    NL: { x: 22, y: 192, name: 'Nederland NL', color: '#64748b' },
+    UK: { x: 12, y: 145, name: 'Storbritannia UK', color: '#64748b' },
   };
 
   const filteredFlows = flows.filter(f => {
@@ -199,8 +199,8 @@ export default function EnergyFlowMap({ zonePrices }) {
           </div>
 
           {/* SVG Network Canvas */}
-          <div className="relative w-full aspect-[4/5] bg-slate-950/90 rounded-xl border border-slate-800/80 p-2 overflow-hidden flex-1 flex items-center justify-center">
-            <svg className="w-full h-full" viewBox="0 0 180 185">
+          <div className="relative w-full min-h-[580px] lg:min-h-[660px] bg-slate-950/90 rounded-xl border border-slate-800/80 p-2 overflow-hidden flex-1 flex items-center justify-center">
+            <svg className="w-full h-full" viewBox="0 0 180 210">
               
               <defs>
                 {/* Flow line animated glow gradient */}
