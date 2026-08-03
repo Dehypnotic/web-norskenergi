@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, Zap, Activity, TrendingDown } from 'lucide-react';
+import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, Zap, Activity, TrendingDown, Droplet } from 'lucide-react';
+import ReservoirChart from './ReservoirChart';
 
 export default function HistoricalStats({ monthlyData = [], annualData = [], isLoading }) {
   const [categoryMode, setCategoryMode] = useState(() => {
@@ -113,18 +114,22 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
 
   return (
     <div className="space-y-8 animate-fade-in">
+      
+      {/* Top Header & Category Selectors */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-card p-6 rounded-2xl border border-slate-800 bg-slate-950/80">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Database className="w-5 h-5 text-cyan-400" />
-            SSB Kraftbalanse & Historikk
+            SSB & NVE Kraftstatistikk
           </h2>
           <p className="text-xs text-slate-400">
-            Månedlig og årlig import, eksport, produksjonsmiks og forbruk fra SSB Statbank
+            Historisk import, eksport, produksjon og vannmagasiner fra SSB Statbank & NVE
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          
+          {/* Main Category Dropdown (Eksport og Import / Produksjon og Forbruk / Vannmagasin) */}
           <select
             value={categoryMode}
             onChange={(e) => handleCategoryModeChange(e.target.value)}
@@ -132,92 +137,110 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           >
             <option value="EXPORT_IMPORT">Eksport og Import</option>
             <option value="PROD_CONS">Produksjon og Forbruk</option>
+            <option value="RESERVOIR">Vannmagasin (Fyllingsgrad)</option>
           </select>
 
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-semibold">
-            <button
-              onClick={() => handleViewModeChange('MONTHLY')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                viewMode === 'MONTHLY' ? 'bg-cyan-500 text-slate-950 shadow-md font-bold' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Månedlig (GWh)
-            </button>
-            <button
-              onClick={() => handleViewModeChange('ANNUAL')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                viewMode === 'ANNUAL' ? 'bg-cyan-500 text-slate-950 shadow-md font-bold' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {annualRangeLabel}
-            </button>
-          </div>
+          {/* Controls for SSB views (hidden when Vannmagasin is selected) */}
+          {categoryMode !== 'RESERVOIR' && (
+            <>
+              {/* Monthly vs Annual Toggle */}
+              <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-semibold">
+                <button
+                  onClick={() => handleViewModeChange('MONTHLY')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    viewMode === 'MONTHLY' ? 'bg-cyan-500 text-slate-950 shadow-md font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Månedlig (GWh)
+                </button>
+                <button
+                  onClick={() => handleViewModeChange('ANNUAL')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    viewMode === 'ANNUAL' ? 'bg-cyan-500 text-slate-950 shadow-md font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {annualRangeLabel}
+                </button>
+              </div>
 
-          {viewMode === 'MONTHLY' && (
-            <select
-              value={selectedYear}
-              onChange={(e) => handleYearChange(e.target.value)}
-              className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500"
-            >
-              <option value="ALL">Siste 36 Måneder</option>
-              {availableYears.map(y => (
-                <option key={y} value={y}>År {y}</option>
-              ))}
-            </select>
+              {/* Year Selector dropdown for monthly view */}
+              {viewMode === 'MONTHLY' && (
+                <select
+                  value={selectedYear}
+                  onChange={(e) => handleYearChange(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500"
+                >
+                  <option value="ALL">Siste 36 Måneder</option>
+                  {availableYears.map(y => (
+                    <option key={y} value={y}>År {y}</option>
+                  ))}
+                </select>
+              )}
+            </>
           )}
+
         </div>
       </div>
 
-      {categoryMode === 'EXPORT_IMPORT' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Samlet Eksport</span>
-              <ArrowUpRight className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="text-2xl font-black font-mono text-emerald-400">
-              {totalExport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-          </div>
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Samlet Import</span>
-              <ArrowDownRight className="w-4 h-4 text-rose-400" />
-            </div>
-            <div className="text-2xl font-black font-mono text-rose-400">
-              {totalImport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-          </div>
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>{isNetExport ? 'Netto Eksport' : 'Netto Import'}</span>
-              {isNetExport ? (
-                <ArrowUpRight className="w-4 h-4 text-emerald-400" />
-              ) : (
-                <ArrowDownRight className="w-4 h-4 text-rose-400" />
-              )}
-            </div>
-            <div className={`text-2xl font-black font-mono ${isNetExport ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {Math.abs(netExport).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-            <div className={`text-[11px] font-semibold font-mono mt-1 ${isNetExport ? 'text-emerald-400/90' : 'text-rose-400/90'}`}>
-              {netSharePercent}% av total produksjon
-            </div>
-          </div>
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Vannkraftandel</span>
-              <PieChart className="w-4 h-4 text-blue-400" />
-            </div>
-            <div className="text-2xl font-black font-mono text-blue-400">
-              {hydroPct}%
-            </div>
-            <div className="text-[11px] text-slate-400 font-mono mt-1">
-              av samlet produksjon
-            </div>
-          </div>
-        </div>
+      {/* Render Vannmagasin (NVE Line Chart View) */}
+      {categoryMode === 'RESERVOIR' ? (
+        <ReservoirChart />
       ) : (
+        <>
+          {/* Aggregate KPI Summary Cards - Adapts to Category Selection */}
+          {categoryMode === 'EXPORT_IMPORT' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Samlet Eksport</span>
+                  <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-2xl font-black font-mono text-emerald-400">
+                  {totalExport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+                </div>
+              </div>
+
+              <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Samlet Import</span>
+                  <ArrowDownRight className="w-4 h-4 text-rose-400" />
+                </div>
+                <div className="text-2xl font-black font-mono text-rose-400">
+                  {totalImport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+                </div>
+              </div>
+
+              <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>{isNetExport ? 'Netto Eksport' : 'Netto Import'}</span>
+                  {isNetExport ? (
+                    <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <ArrowDownRight className="w-4 h-4 text-rose-400" />
+                  )}
+                </div>
+                <div className={`text-2xl font-black font-mono ${isNetExport ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {Math.abs(netExport).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+                </div>
+                <div className={`text-[11px] font-semibold font-mono mt-1 ${isNetExport ? 'text-emerald-400/90' : 'text-rose-400/90'}`}>
+                  {netSharePercent}% av total produksjon
+                </div>
+              </div>
+
+              <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Vannkraftandel</span>
+                  <PieChart className="w-4 h-4 text-blue-400" />
+                </div>
+                <div className="text-2xl font-black font-mono text-blue-400">
+                  {hydroPct}%
+                </div>
+                <div className="text-[11px] text-slate-400 font-mono mt-1">
+                  av samlet produksjon
+                </div>
+              </div>
+            </div>
+          ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
@@ -484,7 +507,8 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           </div>
         </div>
       </div>
-
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 }
