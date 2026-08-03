@@ -15,6 +15,24 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
   });
 
   const [hoveredData, setHoveredData] = useState(null);
+  const leaveTimeoutRef = React.useRef(null);
+
+  const handleBarMouseEnter = (item, label) => {
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = null;
+    }
+    setHoveredData({ ...item, label });
+  };
+
+  const handleBarMouseLeave = () => {
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+    }
+    leaveTimeoutRef.current = setTimeout(() => {
+      setHoveredData(null);
+    }, 1000); // 1-second delay before returning to aggregate period totals
+  };
 
   const handleCategoryModeChange = (mode) => {
     setCategoryMode(mode);
@@ -75,6 +93,23 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
     : '0.0';
 
   const availableYears = Array.from(new Set(monthlyData.map(d => d.year))).sort((a, b) => b - a);
+
+  const activeData = hoveredData || {
+    label: viewMode === 'MONTHLY' 
+      ? (selectedYear === 'ALL' ? 'Hele perioden (siste 36 mnd)' : `Hele året ${selectedYear}`)
+      : `Hele perioden (1960–${latestAnnualYear})`,
+    isAggregate: true,
+    export: totalExport,
+    import: totalImport,
+    netExport: netExport,
+    totalProd: totalProd,
+    netConsumption: totalNetConsumption,
+    gridLoss: totalGridLoss,
+    hydro: totalHydro,
+    wind: totalWind,
+    solar: totalSolar,
+    thermal: totalThermal
+  };
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -247,9 +282,6 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
               <span className="flex items-center gap-1 text-rose-400">
                 <span className="w-3 h-3 rounded bg-rose-500 inline-block"></span> Import
               </span>
-              <span className="flex items-center gap-1 text-cyan-400">
-                <span className="w-3 h-3 rounded bg-cyan-400 inline-block"></span> Nettbalanse
-              </span>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
@@ -277,29 +309,65 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           )}
         </div>
 
-        <div className="h-9 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-mono">
-          {hoveredData ? (
-            categoryMode === 'EXPORT_IMPORT' ? (
-              <>
-                <span className="font-bold text-white">Periode: {hoveredData.label}</span>
-                <span className="text-emerald-400 font-semibold">Eksport: {(hoveredData.export || 0).toLocaleString()} GWh</span>
-                <span className="text-rose-400 font-semibold">Import: {(hoveredData.import || 0).toLocaleString()} GWh</span>
-                <span className="text-cyan-400 font-bold">
-                  Nett: {(hoveredData.netExport || 0) >= 0 ? `+${(hoveredData.netExport || 0).toLocaleString()}` : (hoveredData.netExport || 0).toLocaleString()} GWh
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="font-bold text-white">Periode: {hoveredData.label}</span>
-                <span className="text-amber-400 font-semibold">
-                  Prod: {(hoveredData.totalProd || (hoveredData.hydro + hoveredData.wind + hoveredData.solar + (hoveredData.thermal || 0))).toLocaleString()} GWh
-                </span>
-                <span className="text-indigo-400 font-semibold">Nettoforbruk: {(hoveredData.netConsumption || 0).toLocaleString()} GWh</span>
-                <span className="text-rose-400 font-bold">Energitap: {(hoveredData.gridLoss || 0).toLocaleString()} GWh</span>
-              </>
-            )
+        <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5 text-xs font-mono">
+          {categoryMode === 'EXPORT_IMPORT' ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="font-bold text-white">
+                {activeData.isAggregate ? 'Samlet for perioden:' : 'Periode:'} {activeData.label}
+              </span>
+              <span className="text-emerald-400 font-semibold">Eksport: {(activeData.export || 0).toLocaleString()} GWh</span>
+              <span className="text-rose-400 font-semibold">Import: {(activeData.import || 0).toLocaleString()} GWh</span>
+              <span className="text-cyan-400 font-bold">
+                Netto: {(activeData.netExport || 0) >= 0 ? `+${(activeData.netExport || 0).toLocaleString()}` : (activeData.netExport || 0).toLocaleString()} GWh
+              </span>
+            </div>
           ) : (
-            <span className="text-slate-500 italic">Beveg musen over en søyle for detaljerte tall per periode</span>
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-1.5">
+                <span className="font-bold text-white">
+                  {activeData.isAggregate ? 'Samlet for perioden:' : 'Periode:'} {activeData.label}
+                </span>
+                <span className="text-amber-400 font-bold">
+                  Total prod: {(activeData.totalProd || (activeData.hydro + activeData.wind + activeData.solar + (activeData.thermal || 0))).toLocaleString()} GWh
+                </span>
+                <span className="text-indigo-400 font-semibold">
+                  Nettoforbruk: {(activeData.netConsumption || 0).toLocaleString()} GWh
+                </span>
+                <span className="text-rose-400 font-semibold">
+                  Energitap: {(activeData.gridLoss || 0).toLocaleString()} GWh
+                </span>
+                {(() => {
+                  const prod = activeData.totalProd || (activeData.hydro + activeData.wind + activeData.solar + (activeData.thermal || 0));
+                  const netC = activeData.netConsumption || Math.round((activeData.grossConsumption || prod) * 0.915);
+                  const loss = activeData.gridLoss || Math.max(0, (activeData.grossConsumption || prod) - netC);
+                  const gross = netC + loss;
+                  const bal = prod - gross;
+                  const isPos = bal >= 0;
+                  return (
+                    <span className={`font-black px-2 py-0.5 rounded bg-slate-950/80 border ${isPos ? 'text-emerald-400 border-emerald-500/30' : 'text-rose-400 border-rose-500/30'}`}>
+                      {isPos ? `Overskudd: +${bal.toLocaleString()} GWh` : `Underskudd: -${Math.abs(bal).toLocaleString()} GWh`}
+                    </span>
+                  );
+                })()}
+              </div>
+              {(() => {
+                const pTot = activeData.totalProd || ((activeData.hydro || 0) + (activeData.wind || 0) + (activeData.solar || 0) + (activeData.thermal || 0));
+                const hShare = pTot > 0 ? (((activeData.hydro || 0) / pTot) * 100).toFixed(1) : '0.0';
+                const wShare = pTot > 0 ? (((activeData.wind || 0) / pTot) * 100).toFixed(1) : '0.0';
+                const sShare = pTot > 0 ? (((activeData.solar || 0) / pTot) * 100).toFixed(1) : '0.0';
+                const tShare = pTot > 0 ? (((activeData.thermal || 0) / pTot) * 100).toFixed(1) : '0.0';
+
+                return (
+                  <div className="flex flex-wrap items-center justify-between gap-4 text-[11px] pt-0.5">
+                    <span className="text-slate-400 font-bold">Produksjon per kilde:</span>
+                    <span className="text-blue-400 font-semibold">Vann: {(activeData.hydro || 0).toLocaleString()} GWh ({hShare}%)</span>
+                    <span className="text-teal-400 font-semibold">Vind: {(activeData.wind || 0).toLocaleString()} GWh ({wShare}%)</span>
+                    <span className="text-amber-400 font-semibold">Sol: {(activeData.solar || 0).toLocaleString()} GWh ({sShare}%)</span>
+                    <span className="text-orange-400 font-semibold">Varme: {(activeData.thermal || 0).toLocaleString()} GWh ({tShare}%)</span>
+                  </div>
+                );
+              })()}
+            </>
           )}
         </div>
 
@@ -320,8 +388,12 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                   const impHeight = ((item.import || 0) / maxVal) * 100;
 
                   return (
-                    <div key={idx} onMouseEnter={() => setHoveredData({ ...item, label })} onMouseLeave={() => setHoveredData(null)}
-                      className="flex-1 min-w-[10px] flex flex-col items-center h-full justify-end group relative cursor-pointer">
+                    <div 
+                      key={idx} 
+                      onMouseEnter={() => handleBarMouseEnter(item, label)} 
+                      onMouseLeave={handleBarMouseLeave}
+                      className="flex-1 min-w-[10px] flex flex-col items-center h-full justify-end group relative cursor-pointer"
+                    >
                       <div className="flex items-end gap-0.5 w-full h-full justify-center">
                         <div className={`w-1/2 rounded-t transition-all ${isHovered ? 'bg-emerald-400 shadow-lg shadow-emerald-500/30' : 'bg-emerald-500/80'}`} style={{ height: `${Math.max(4, expHeight)}%` }} />
                         <div className={`w-1/2 rounded-t transition-all ${isHovered ? 'bg-rose-400 shadow-lg shadow-rose-500/30' : 'bg-rose-500/80'}`} style={{ height: `${Math.max(4, impHeight)}%` }} />
@@ -360,8 +432,8 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                   return (
                     <div 
                       key={idx} 
-                      onMouseEnter={() => setHoveredData({ ...item, label })} 
-                      onMouseLeave={() => setHoveredData(null)}
+                      onMouseEnter={() => handleBarMouseEnter(item, label)} 
+                      onMouseLeave={handleBarMouseLeave}
                       className="flex-1 min-w-[12px] flex flex-col items-center h-full justify-end group relative cursor-pointer"
                     >
                       {/* 2 Clean Side-by-Side Stacked Bars: [Production Stack] [Consumption + Loss Stack] */}
@@ -407,72 +479,6 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                   <div key={idx} className="flex-1 text-center text-[10px] text-slate-400 font-mono">{item.year % 5 === 0 || item.year === 1960 || item.year === latestAnnualYear ? item.year : ''}</div>
                 ))}</div>
               )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Production Mix Breakdown under Graph */}
-      <div className="glass-card p-6 rounded-2xl border border-slate-800 bg-slate-950/80">
-        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-          <Layers className="w-5 h-5 text-cyan-400" />
-          Energikilder for Norsk Kraftproduksjon (Sammendrag)
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Vannkraft */}
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60">
-            <div className="text-xs text-slate-400 font-medium flex items-center justify-between">
-              <span>Vannkraft</span>
-              <span className="text-cyan-400 font-bold font-mono text-sm">{hydroPct}%</span>
-            </div>
-            <div className="text-2xl font-black text-blue-400 font-mono mt-1">
-              {totalHydro.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className="bg-blue-500 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(5, hydroPct))}%` }}></div>
-            </div>
-          </div>
-
-          {/* Vindkraft */}
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60">
-            <div className="text-xs text-slate-400 font-medium flex items-center justify-between">
-              <span>Vindkraft</span>
-              <span className="text-teal-300 font-bold font-mono text-sm">{windPct}%</span>
-            </div>
-            <div className="text-2xl font-black text-teal-400 font-mono mt-1">
-              {totalWind.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className="bg-teal-400 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(5, windPct))}%` }}></div>
-            </div>
-          </div>
-
-          {/* Solkraft */}
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60">
-            <div className="text-xs text-slate-400 font-medium flex items-center justify-between">
-              <span>Solkraft</span>
-              <span className="text-amber-300 font-bold font-mono text-sm">{solarPct}%</span>
-            </div>
-            <div className="text-2xl font-black text-amber-400 font-mono mt-1">
-              {totalSolar.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className="bg-amber-400 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(3, solarPct))}%` }}></div>
-            </div>
-          </div>
-
-          {/* Varmekraft */}
-          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60">
-            <div className="text-xs text-slate-400 font-medium flex items-center justify-between">
-              <span>Varmekraft & annet</span>
-              <span className="text-orange-300 font-bold font-mono text-sm">{thermalPct}%</span>
-            </div>
-            <div className="text-2xl font-black text-orange-400 font-mono mt-1">
-              {totalThermal.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className="bg-orange-500 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(3, thermalPct))}%` }}></div>
             </div>
           </div>
         </div>
