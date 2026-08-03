@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { fetchNVEMagasinData, RESERVOIR_AREAS } from '../services/nveApi';
 import { Droplet, Calendar, MapPin, TrendingUp, TrendingDown, Info, ShieldCheck } from 'lucide-react';
 
-export default function ReservoirChart() {
+export default function ReservoirChart({ selectedAreaId = 'NO', selectedYear = '2026' }) {
   const [nveData, setNveData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedAreaId, setSelectedAreaId] = useState('NO');
-  const [selectedYear, setSelectedYear] = useState('2026');
   const [hoveredWeekData, setHoveredWeekData] = useState(null);
 
   useEffect(() => {
@@ -110,53 +108,6 @@ export default function ReservoirChart() {
 
   return (
     <div className="space-y-6">
-
-      {/* Selector Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/90">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            <Droplet className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-white text-base">Fyllingsgrad i Vannmagasiner</h3>
-            <p className="text-xs text-slate-400">Ukentlig fyllingsgrad (%) med historisk min, maks og median fra NVE</p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Area Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
-            <MapPin className="w-4 h-4 text-cyan-400" />
-            <select
-              value={selectedAreaId}
-              onChange={(e) => setSelectedAreaId(e.target.value)}
-              className="bg-transparent text-white font-bold text-xs outline-none cursor-pointer"
-            >
-              {RESERVOIR_AREAS.map(area => (
-                <option key={area.id} value={area.id} className="bg-slate-900 text-white">
-                  {area.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Year Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
-            <Calendar className="w-4 h-4 text-cyan-400" />
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="bg-transparent text-white font-mono font-bold text-xs outline-none cursor-pointer"
-            >
-              {availableYears.map(yr => (
-                <option key={yr} value={yr} className="bg-slate-900 text-white">
-                  År {yr}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
 
       {/* Info Strip (Mouseover / Current Status) */}
       <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-mono">

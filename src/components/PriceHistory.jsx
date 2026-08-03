@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { getAnnualPriceHistory, getMonthlyPriceHistoryForYear, getDailyPriceHistoryForMonth } from '../services/priceHistoryService';
 import { ZONES } from '../services/electricityApi';
-import { BarChart3, Calendar, Layers, ArrowUpRight, ArrowDownRight, Info, Filter } from 'lucide-react';
+import { BarChart3, Calendar, Layers, ArrowUpRight, ArrowDownRight, Info, Filter, ChevronDown } from 'lucide-react';
 
 export default function PriceHistory() {
   const [viewMode, setViewMode] = useState(() => {
@@ -22,6 +22,7 @@ export default function PriceHistory() {
 
   const [includeVat, setIncludeVat] = useState(true);
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [isTableExpanded, setIsTableExpanded] = useState(false);
 
   const handleViewModeChange = (mode) => {
     setViewMode(mode);
@@ -355,41 +356,68 @@ export default function PriceHistory() {
 
       </div>
 
-      {/* Detailed Data Table */}
-      <div className="glass-card p-6 rounded-2xl border border-slate-800 bg-slate-950/80">
-        <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-          <Layers className="w-4 h-4 text-cyan-400" />
-          Komplett Pristabell (øre/kWh)
-        </h3>
+      {/* Detailed Data Table (Collapsible Accordion) */}
+      <div className="glass-card rounded-2xl border border-slate-800 bg-slate-950/80 overflow-hidden transition-all">
+        
+        {/* Accordion Toggle Header */}
+        <button
+          onClick={() => setIsTableExpanded(!isTableExpanded)}
+          className="w-full p-5 flex items-center justify-between text-left hover:bg-slate-900/60 transition-all cursor-pointer select-none"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <Layers className="w-4.5 h-4.5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                Komplett Pristabell (øre/kWh)
+                <span className="text-xs font-mono font-normal text-slate-400">({rawDataset.length} rader)</span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                {isTableExpanded ? 'Klikk for å skjule tabellen' : 'Klikk for å vise alle historiske tall per prissone'}
+              </p>
+            </div>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs font-mono">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
-                <th className="py-2.5 px-3">Periode</th>
-                <th className="py-2.5 px-3 text-blue-400">NO1 (Øst)</th>
-                <th className="py-2.5 px-3 text-emerald-400">NO2 (Sør)</th>
-                <th className="py-2.5 px-3 text-amber-400">NO3 (Midt)</th>
-                <th className="py-2.5 px-3 text-purple-400">NO4 (Nord)</th>
-                <th className="py-2.5 px-3 text-pink-400">NO5 (Vest)</th>
-                <th className="py-2.5 px-3 text-cyan-300">Snitt Norge</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-200">
-              {rawDataset.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-900/60 transition-colors">
-                  <td className="py-2 px-3 font-bold text-white">{item.label}</td>
-                  <td className="py-2 px-3">{getOreValue(item.NO1, 'NO1').toFixed(1)} øre</td>
-                  <td className="py-2 px-3">{getOreValue(item.NO2, 'NO2').toFixed(1)} øre</td>
-                  <td className="py-2 px-3">{getOreValue(item.NO3, 'NO3').toFixed(1)} øre</td>
-                  <td className="py-2 px-3">{getOreValue(item.NO4, 'NO4').toFixed(1)} øre</td>
-                  <td className="py-2 px-3">{getOreValue(item.NO5, 'NO5').toFixed(1)} øre</td>
-                  <td className="py-2 px-3 font-bold text-cyan-300">{getOreValue(item.nationalAvg, 'NO1').toFixed(1)} øre</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-cyan-300 bg-slate-900 border border-slate-800 px-3.5 py-2 rounded-xl shadow-md group-hover:border-cyan-500/50">
+            <span>{isTableExpanded ? 'Skjul tabell' : 'Vis tabell'}</span>
+            <ChevronDown className={`w-4 h-4 text-cyan-400 transition-transform duration-200 ${isTableExpanded ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
+
+        {/* Collapsible Content */}
+        {isTableExpanded && (
+          <div className="p-6 pt-0 border-t border-slate-800/80 animate-fade-in">
+            <div className="overflow-x-auto mt-4">
+              <table className="w-full text-left border-collapse text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
+                    <th className="py-2.5 px-3">Periode</th>
+                    <th className="py-2.5 px-3 text-blue-400">NO1 (Øst)</th>
+                    <th className="py-2.5 px-3 text-emerald-400">NO2 (Sør)</th>
+                    <th className="py-2.5 px-3 text-amber-400">NO3 (Midt)</th>
+                    <th className="py-2.5 px-3 text-purple-400">NO4 (Nord)</th>
+                    <th className="py-2.5 px-3 text-pink-400">NO5 (Vest)</th>
+                    <th className="py-2.5 px-3 text-cyan-300">Snitt Norge</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-slate-200">
+                  {rawDataset.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-slate-900/60 transition-colors">
+                      <td className="py-2 px-3 font-bold text-white">{item.label}</td>
+                      <td className="py-2 px-3">{getOreValue(item.NO1, 'NO1').toFixed(1)} øre</td>
+                      <td className="py-2 px-3">{getOreValue(item.NO2, 'NO2').toFixed(1)} øre</td>
+                      <td className="py-2 px-3">{getOreValue(item.NO3, 'NO3').toFixed(1)} øre</td>
+                      <td className="py-2 px-3">{getOreValue(item.NO4, 'NO4').toFixed(1)} øre</td>
+                      <td className="py-2 px-3">{getOreValue(item.NO5, 'NO5').toFixed(1)} øre</td>
+                      <td className="py-2 px-3 font-bold text-cyan-300">{getOreValue(item.nationalAvg, 'NO1').toFixed(1)} øre</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>

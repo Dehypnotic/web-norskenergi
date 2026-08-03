@@ -141,6 +141,10 @@ export default function App() {
               SSB Statbank (Tabell 14091 & 08307)
             </a>
             <span>•</span>
+            <a href="https://api.nve.no/doc/magasinstatistikk/" target="_blank" rel="noreferrer" className="hover:text-cyan-400 underline">
+              NVE Magasinstatistikk
+            </a>
+            <span>•</span>
             <a href="https://www.statnett.no" target="_blank" rel="noreferrer" className="hover:text-cyan-400 underline">
               Statnett Kraftsystemdata
             </a>

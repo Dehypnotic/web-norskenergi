@@ -317,7 +317,7 @@ export default function ZonePrices({ zonePrices, isLoading }) {
                 value={customDateStr}
                 max={maxAllowedDateStr}
                 onChange={(e) => handleCustomDateChange(e.target.value)}
-                className="bg-slate-950 border border-slate-800 text-slate-200 text-xs font-mono rounded-lg px-2 py-1 outline-none focus:border-cyan-500"
+                className="bg-slate-950 border border-slate-800 text-slate-200 text-xs font-mono rounded-lg px-2 py-1 outline-none focus:border-cyan-500 cursor-pointer"
               />
 
               {/* Step +1 Day Button */}
@@ -333,12 +333,35 @@ export default function ZonePrices({ zonePrices, isLoading }) {
           </div>
         </div>
 
-        {/* Notice if Nord Pool tomorrow prices not ready yet */}
-        {dateInfoNotice && (
-          <div className="mb-4 px-4 py-2 rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-medium flex items-center gap-2">
-            <Info className="w-4 h-4 shrink-0" />
-            <span>{dateInfoNotice}</span>
-          </div>
+        {/* Notice Banner for Tomorrow / Prognose Status */}
+        {dateOption === 'TOMORROW' && (
+          activeZonePrices?.NO1?.isMock ? (
+            <div className="mb-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium flex items-center justify-between gap-3 shadow-lg">
+              <div className="flex items-center gap-2.5">
+                <Info className="w-5 h-5 text-amber-400 shrink-0" />
+                <div>
+                  <span className="font-bold text-amber-200 uppercase tracking-wide">PRISPROGNOSE FOR I MORGEN:</span>{' '}
+                  Nord Pool publiserer offisielle spotpriser for i morgen hver dag rundt kl. 13:00. Viste tall for i morgen er en beregnet prisprognose basert på gjeldende markedstrender.
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-400/20 text-amber-300 font-mono text-[11px] font-bold border border-amber-400/40 shrink-0 hidden sm:inline-block">
+                PROGNOSE (Nye priser kl. 13:00)
+              </span>
+            </div>
+          ) : (
+            <div className="mb-4 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center justify-between gap-3 shadow-lg">
+              <div className="flex items-center gap-2.5">
+                <ShieldAlert className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div>
+                  <span className="font-bold text-emerald-200 uppercase tracking-wide">OFFISIELLE SPOTPRISER FOR I MORGEN:</span>{' '}
+                  Spotprisene fra Nord Pool for i morgen ({formatDateLabel(selectedDate)}) er nå publisert og bekreftet.
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-400/20 text-emerald-300 font-mono text-[11px] font-bold border border-emerald-400/40 shrink-0 hidden sm:inline-block">
+                NORD POOL BEKREFTET
+              </span>
+            </div>
+          )
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -472,11 +495,22 @@ export default function ZonePrices({ zonePrices, isLoading }) {
       <div className="glass-card p-6 rounded-2xl border border-slate-800 bg-slate-950/80">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Clock className="w-5 h-5 text-cyan-400" />
-              Time-for-time Spotpris for {ZONES.find(z => z.id === selectedZone)?.name}
-            </h3>
-            <p className="text-xs text-slate-400">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Clock className="w-5 h-5 text-cyan-400" />
+                Time-for-time Spotpris for {ZONES.find(z => z.id === selectedZone)?.name}
+              </h3>
+              {selectedData?.isMock ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 font-mono text-[11px] font-bold">
+                  Prognose (Nye priser kl. 13:00)
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/40 font-mono text-[11px] font-bold">
+                  Bekreftet Nord Pool API
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
               {includeStromstotte ? 'Viser effektiv pris inkludert 90% strømstøtte' : 'Viser ren spotpris før strømstøtte'} • {formatDateLabel(selectedDate)}
             </p>
           </div>

@@ -39,7 +39,7 @@ export default function Header({
               </span>
             </div>
             <p className="text-xs text-slate-400 font-medium">
-              Reeltidssky for norske strømpriser, kraftflyt & SSB statistikk
+              Reeltidssky for norske strømpriser, kraftflyt & kraftstatistikk (SSB & NVE)
             </p>
           </div>
         </div>
@@ -91,7 +91,7 @@ export default function Header({
             }`}
           >
             <Database className="w-4 h-4" />
-            SSB
+            Statistikk
           </button>
 
           <button

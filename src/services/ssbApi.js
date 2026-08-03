@@ -53,10 +53,71 @@ function parseJsonStat2(jsonStatData) {
   return parsed;
 }
 
+const SSB_MONTHLY_CACHE_KEY = 'norsk_kraftpuls_ssb_monthly_v1';
+const SSB_MONTHLY_CACHE_TIME = 'norsk_kraftpuls_ssb_monthly_time';
+const SSB_ANNUAL_CACHE_KEY = 'norsk_kraftpuls_ssb_annual_v1';
+const SSB_ANNUAL_CACHE_TIME = 'norsk_kraftpuls_ssb_annual_time';
+const SSB_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours cache validity for SSB
+
+function getSSBCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setSSBCache(key, timeKey, data) {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    localStorage.setItem(timeKey, String(Date.now()));
+  } catch (e) {
+    console.warn('Failed to write SSB cache:', e);
+  }
+}
+
+function isSSBCacheExpired(timeKey) {
+  try {
+    const t = localStorage.getItem(timeKey);
+    return !t || (Date.now() - Number(t) > SSB_CACHE_TTL);
+  } catch (e) {
+    return true;
+  }
+}
+
 /**
  * Fetch monthly electricity stats from SSB Table 14091
  */
-export async function fetchSSBMonthlyBalance() {
+export async function fetchSSBMonthlyBalance(forceRefresh = false) {
+  const cached = getSSBCache(SSB_MONTHLY_CACHE_KEY);
+
+  if (cached && !forceRefresh && !isSSBCacheExpired(SSB_MONTHLY_CACHE_TIME)) {
+    return cached;
+  }
+
+  if (cached && !forceRefresh && isSSBCacheExpired(SSB_MONTHLY_CACHE_TIME)) {
+    revalidateMonthlySSB().then(fresh => {
+      if (fresh) setSSBCache(SSB_MONTHLY_CACHE_KEY, SSB_MONTHLY_CACHE_TIME, fresh);
+    }).catch(e => console.warn('Background SSB monthly revalidation error:', e));
+    return cached;
+  }
+
+  try {
+    const fresh = await revalidateMonthlySSB();
+    if (fresh) {
+      setSSBCache(SSB_MONTHLY_CACHE_KEY, SSB_MONTHLY_CACHE_TIME, fresh);
+      return fresh;
+    }
+  } catch (err) {
+    console.warn('Could not fetch SSB Table 14091 directly, loading curated dataset:', err.message);
+  }
+
+  if (cached) return cached;
+  return getFallbackMonthlyData();
+}
+
+async function revalidateMonthlySSB() {
   const url = 'https://data.ssb.no/api/v0/no/table/14091';
   const queryBody = {
     query: [
@@ -73,23 +134,18 @@ export async function fetchSSBMonthlyBalance() {
     }
   };
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(queryBody)
-    });
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(queryBody)
+  });
 
-    if (!res.ok) {
-      throw new Error(`SSB API returned HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-    return processMonthlySSBData(data);
-  } catch (err) {
-    console.warn('Could not fetch SSB Table 14091 directly, loading curated dataset:', err.message);
-    return getFallbackMonthlyData();
+  if (!res.ok) {
+    throw new Error(`SSB API returned HTTP ${res.status}`);
   }
+
+  const data = await res.json();
+  return processMonthlySSBData(data);
 }
 
 /**
@@ -160,7 +216,35 @@ function processMonthlySSBData(jsonStat) {
 /**
  * Fetch annual electricity stats from SSB Table 08307
  */
-export async function fetchSSBAnnualBalance() {
+export async function fetchSSBAnnualBalance(forceRefresh = false) {
+  const cached = getSSBCache(SSB_ANNUAL_CACHE_KEY);
+
+  if (cached && !forceRefresh && !isSSBCacheExpired(SSB_ANNUAL_CACHE_TIME)) {
+    return cached;
+  }
+
+  if (cached && !forceRefresh && isSSBCacheExpired(SSB_ANNUAL_CACHE_TIME)) {
+    revalidateAnnualSSB().then(fresh => {
+      if (fresh) setSSBCache(SSB_ANNUAL_CACHE_KEY, SSB_ANNUAL_CACHE_TIME, fresh);
+    }).catch(e => console.warn('Background SSB annual revalidation error:', e));
+    return cached;
+  }
+
+  try {
+    const fresh = await revalidateAnnualSSB();
+    if (fresh) {
+      setSSBCache(SSB_ANNUAL_CACHE_KEY, SSB_ANNUAL_CACHE_TIME, fresh);
+      return fresh;
+    }
+  } catch (err) {
+    console.warn('Could not fetch SSB Table 08307 directly, loading curated annual dataset:', err.message);
+  }
+
+  if (cached) return cached;
+  return getFallbackAnnualData();
+}
+
+async function revalidateAnnualSSB() {
   const url = 'https://data.ssb.no/api/v0/no/table/08307';
   const queryBody = {
     query: [
@@ -177,23 +261,18 @@ export async function fetchSSBAnnualBalance() {
     }
   };
 
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(queryBody)
-    });
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(queryBody)
+  });
 
-    if (!res.ok) {
-      throw new Error(`SSB API returned HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-    return processAnnualSSBData(data);
-  } catch (err) {
-    console.warn('Could not fetch SSB Table 08307 directly, loading curated annual dataset:', err.message);
-    return getFallbackAnnualData();
+  if (!res.ok) {
+    throw new Error(`SSB API returned HTTP ${res.status}`);
   }
+
+  const data = await res.json();
+  return processAnnualSSBData(data);
 }
 
 function processAnnualSSBData(jsonStat) {

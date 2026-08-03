@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, Zap, Activity, TrendingDown, Droplet } from 'lucide-react';
+import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, Zap, Activity, TrendingDown, Droplet, MapPin, Calendar } from 'lucide-react';
 import ReservoirChart from './ReservoirChart';
+import { RESERVOIR_AREAS } from '../services/nveApi';
 
 export default function HistoricalStats({ monthlyData = [], annualData = [], isLoading }) {
   const [categoryMode, setCategoryMode] = useState(() => {
@@ -13,6 +14,14 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
 
   const [selectedYear, setSelectedYear] = useState(() => {
     return localStorage.getItem('norsk_kraftpuls_ssb_selected_year') || 'ALL';
+  });
+
+  const [reservoirAreaId, setReservoirAreaId] = useState(() => {
+    return localStorage.getItem('norsk_kraftpuls_reservoir_area') || 'NO';
+  });
+
+  const [reservoirYear, setReservoirYear] = useState(() => {
+    return localStorage.getItem('norsk_kraftpuls_reservoir_year') || '2026';
   });
 
   const [hoveredData, setHoveredData] = useState(null);
@@ -141,7 +150,7 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           </select>
 
           {/* Controls for SSB views (hidden when Vannmagasin is selected) */}
-          {categoryMode !== 'RESERVOIR' && (
+          {categoryMode !== 'RESERVOIR' ? (
             <>
               {/* Monthly vs Annual Toggle */}
               <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-semibold">
@@ -168,7 +177,7 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                 <select
                   value={selectedYear}
                   onChange={(e) => handleYearChange(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500"
+                  className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500 cursor-pointer"
                 >
                   <option value="ALL">Siste 36 Måneder</option>
                   {availableYears.map(y => (
@@ -177,6 +186,46 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                 </select>
               )}
             </>
+          ) : (
+            <>
+              {/* Area Selector for NVE Vannmagasin */}
+              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold">
+                <MapPin className="w-4 h-4 text-cyan-400" />
+                <select
+                  value={reservoirAreaId}
+                  onChange={(e) => {
+                    setReservoirAreaId(e.target.value);
+                    localStorage.setItem('norsk_kraftpuls_reservoir_area', e.target.value);
+                  }}
+                  className="bg-transparent text-cyan-300 font-bold outline-none cursor-pointer"
+                >
+                  {RESERVOIR_AREAS.map(area => (
+                    <option key={area.id} value={area.id} className="bg-slate-900 text-white">
+                      {area.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Year Selector for NVE Vannmagasin */}
+              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold">
+                <Calendar className="w-4 h-4 text-cyan-400" />
+                <select
+                  value={reservoirYear}
+                  onChange={(e) => {
+                    setReservoirYear(e.target.value);
+                    localStorage.setItem('norsk_kraftpuls_reservoir_year', e.target.value);
+                  }}
+                  className="bg-transparent text-slate-200 font-mono font-bold outline-none cursor-pointer"
+                >
+                  {Array.from({ length: 32 }, (_, i) => 2026 - i).map(yr => (
+                    <option key={yr} value={yr} className="bg-slate-900 text-white">
+                      År {yr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
           )}
 
         </div>
@@ -184,7 +233,7 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
 
       {/* Render Vannmagasin (NVE Line Chart View) */}
       {categoryMode === 'RESERVOIR' ? (
-        <ReservoirChart />
+        <ReservoirChart selectedAreaId={reservoirAreaId} selectedYear={reservoirYear} />
       ) : (
         <>
           {/* Aggregate KPI Summary Cards - Adapts to Category Selection */}
