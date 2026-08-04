@@ -11,7 +11,7 @@ import { Globe, Calendar, Layers, PieChart, TrendingUp, Info, RefreshCw, Chevron
 
 export default function EuropeanPowerMix() {
   const [selectedCountry, setSelectedCountry] = useState('de');
-  const [periodType, setPeriodType] = useState('DAY'); // 'DAY', 'WEEK', 'MONTH', 'YEAR'
+  const [periodType, setPeriodType] = useState('YEAR'); // Default to current calendar year
 
   const currentYr = new Date().getFullYear();
   const currentMo = new Date().getMonth() + 1;
@@ -292,7 +292,7 @@ export default function EuropeanPowerMix() {
                   Offentlig netto strømproduksjon i {countryInfo.name} ({dateRange.titleLabel})
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Data kilde: Fraunhofer ISE Energy-Charts API (CC BY 4.0)
+                  Datakilde: Fraunhofer ISE Energy-Charts API (CC BY 4.0)
                 </p>
               </div>
 
@@ -504,13 +504,16 @@ export default function EuropeanPowerMix() {
                 <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono flex flex-wrap items-center justify-between gap-4">
                   <span className="font-bold text-white">{hoveredTimePoint.dateLabel}</span>
                   <div className="flex flex-wrap items-center gap-3">
-                    {Object.keys(hoveredTimePoint.sources).slice(0, 5).map(sName => (
-                      <span key={sName} className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: SOURCE_COLORS[sName] || '#94a3b8' }}></span>
-                        <span className="text-slate-300">{translateSource(sName)}:</span>
-                        <span className="text-cyan-400 font-bold">{formatGWhLabel(hoveredTimePoint.sources[sName])}</span>
-                      </span>
-                    ))}
+                    {Object.keys(hoveredTimePoint.sources)
+                      .filter(sName => sName !== 'Cross border electricity trading')
+                      .slice(0, 6)
+                      .map(sName => (
+                        <span key={sName} className="flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: SOURCE_COLORS[sName] || '#94a3b8' }}></span>
+                          <span className="text-slate-300">{translateSource(sName)}:</span>
+                          <span className="text-cyan-400 font-bold">{formatGWhLabel(hoveredTimePoint.sources[sName])}</span>
+                        </span>
+                      ))}
                   </div>
                 </div>
               )}

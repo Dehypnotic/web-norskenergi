@@ -145,6 +145,10 @@ export default function App() {
               NVE Magasinstatistikk
             </a>
             <span>•</span>
+            <a href="https://energy-charts.info" target="_blank" rel="noreferrer" className="hover:text-cyan-400 underline">
+              Fraunhofer ISE Energy-Charts
+            </a>
+            <span>•</span>
             <a href="https://www.statnett.no" target="_blank" rel="noreferrer" className="hover:text-cyan-400 underline">
               Statnett Kraftsystemdata
             </a>

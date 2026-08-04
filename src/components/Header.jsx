@@ -67,7 +67,7 @@ export default function Header({
             }`}
           >
             <MapPin className="w-4 h-4" />
-            Energiflyt
+            Strømflyt
           </button>
 
           <button
