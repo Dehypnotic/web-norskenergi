@@ -133,10 +133,91 @@ export function getDatesForISOWeek(year, week) {
 }
 
 /**
- * Fetch Energy-Charts data with caching
+ * Fetch raw JSON chunk from Energy-Charts with multi-proxy fallback
+ */
+async function fetchRawDataChunk(country, startStr, endStr) {
+  const devProxyUrl = `/api/energy-charts/public_power?country=${country}&start=${startStr}&end=${endStr}`;
+  const directUrl = `${BASE_URL}?country=${country}&start=${startStr}&end=${endStr}`;
+
+  // 1. Local Vite dev server proxy
+  try {
+    const res = await fetch(devProxyUrl);
+    if (res.ok) return await res.json();
+  } catch (e) {}
+
+  // 2. Direct fetch
+  try {
+    const res = await fetch(directUrl);
+    if (res.ok) return await res.json();
+  } catch (e) {}
+
+  // 3. AllOrigins proxy
+  try {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) return await res.json();
+  } catch (e) {}
+
+  // 4. CorsProxy.io
+  try {
+    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(directUrl)}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) return await res.json();
+  } catch (e) {}
+
+  throw new Error(`Kunne ikke hente data for ${country} (${startStr} til ${endStr})`);
+}
+
+/**
+ * Merges two JSON data chunks from Energy-Charts
+ */
+function mergeDataChunks(p1, p2) {
+  if (!p1 || !p1.unix_seconds) return p2;
+  if (!p2 || !p2.unix_seconds) return p1;
+
+  const mergedSeconds = [...p1.unix_seconds, ...p2.unix_seconds];
+  const typeMap = new Map();
+
+  p1.production_types.forEach(pt => {
+    typeMap.set(pt.name, [...pt.data]);
+  });
+
+  p2.production_types.forEach(pt => {
+    if (typeMap.has(pt.name)) {
+      typeMap.set(pt.name, [...typeMap.get(pt.name), ...pt.data]);
+    } else {
+      // Pad with nulls for first half if missing
+      const pad = new Array(p1.unix_seconds.length).fill(null);
+      typeMap.set(pt.name, [...pad, ...pt.data]);
+    }
+  });
+
+  const mergedTypes = Array.from(typeMap.entries()).map(([name, data]) => ({
+    name,
+    data
+  }));
+
+  return {
+    unix_seconds: mergedSeconds,
+    production_types: mergedTypes
+  };
+}
+
+/**
+ * Fetch Energy-Charts data with caching and smart chunking
  */
 export async function fetchEnergyChartsPower(country = 'de', startStr, endStr, periodType = 'DAY') {
-  const cacheKey = `ec_v7_${country}_${startStr}_${endStr}_${periodType}`;
+  // Cap endStr for current year to current date to avoid downloading future empty dates
+  const currentYr = new Date().getFullYear();
+  const yrFromStart = parseInt(startStr.slice(0, 4), 10);
+  
+  let effEndStr = endStr;
+  if (yrFromStart === currentYr && periodType === 'YEAR') {
+    const today = new Date();
+    effEndStr = formatDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  }
+
+  const cacheKey = `ec_v8_${country}_${startStr}_${effEndStr}_${periodType}`;
   
   if (cache.has(cacheKey)) {
     return cache.get(cacheKey);
@@ -149,34 +230,21 @@ export async function fetchEnergyChartsPower(country = 'de', startStr, endStr, p
       cache.set(cacheKey, parsed);
       return parsed;
     }
-  } catch (e) {
-    // Ignore localStorage errors
-  }
-
-  const devProxyUrl = `/api/energy-charts/public_power?country=${country}&start=${startStr}&end=${endStr}`;
-  const directUrl = `${BASE_URL}?country=${country}&start=${startStr}&end=${endStr}`;
+  } catch (e) {}
 
   try {
     let data;
-    try {
-      // 1. Attempt Vite dev server proxy first if running locally
-      const res = await fetch(devProxyUrl);
-      if (!res.ok) throw new Error(`Status ${res.status}`);
-      data = await res.json();
-    } catch (err1) {
-      try {
-        // 2. Direct fetch fallback
-        const res = await fetch(directUrl);
-        if (!res.ok) throw new Error(`Status ${res.status}`);
-        data = await res.json();
-      } catch (err2) {
-        // 3. Multi-megabyte CORS proxy fallback
-        console.log('Direct fetch failed, trying AllOrigins CORS proxy...');
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
-        const proxyRes = await fetch(proxyUrl);
-        if (!proxyRes.ok) throw new Error(`Proxy status ${proxyRes.status}`);
-        data = await proxyRes.json();
-      }
+
+    // For past full years, fetch in 2 semi-annual chunks to keep payload under 1MB CORS proxy limits
+    if (periodType === 'YEAR' && yrFromStart < currentYr) {
+      const midStr1 = `${yrFromStart}-06-30`;
+      const midStr2 = `${yrFromStart}-07-01`;
+
+      const chunk1 = await fetchRawDataChunk(country, `${yrFromStart}-01-01`, midStr1);
+      const chunk2 = await fetchRawDataChunk(country, midStr2, `${yrFromStart}-12-31`);
+      data = mergeDataChunks(chunk1, chunk2);
+    } else {
+      data = await fetchRawDataChunk(country, startStr, effEndStr);
     }
 
     const processed = processEnergyChartsData(data, periodType);
@@ -190,7 +258,7 @@ export async function fetchEnergyChartsPower(country = 'de', startStr, endStr, p
     return processed;
   } catch (err) {
     console.warn('Could not fetch Energy-Charts data, generating fallback dataset:', err);
-    const fb = getFallbackEnergyChartsData(country, startStr, endStr, periodType);
+    const fb = getFallbackEnergyChartsData(country, startStr, effEndStr, periodType);
     fb.isFallback = true;
     return fb;
   }
