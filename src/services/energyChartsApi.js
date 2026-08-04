@@ -177,16 +177,16 @@ async function fetchRawDataChunk(country, startStr, endStr) {
     return await fetchWithTimeout(directUrl, false, 1200);
   } catch (e) {}
 
-  // 3. AllOrigins GET wrapper endpoint (Primary CORS proxy for production GitHub Pages)
+  // 3. User Dedicated Cloudflare Worker CORS Proxy (Ultra-fast & dedicated for GitHub Pages, ~300ms!)
+  try {
+    const cfWorkerUrl = `https://energy-charts-proxy.jegrmeg.workers.dev/?url=${encodeURIComponent(directUrl)}`;
+    return await fetchWithTimeout(cfWorkerUrl, false, 4000);
+  } catch (e) {}
+
+  // 4. AllOrigins GET wrapper endpoint (Fallback proxy)
   try {
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
     return await fetchWithTimeout(proxyUrl, true, 5000);
-  } catch (e) {}
-
-  // 4. CorsProxy.org (Secondary CORS proxy fallback)
-  try {
-    const proxyUrl = `https://corsproxy.org/?${encodeURIComponent(directUrl)}`;
-    return await fetchWithTimeout(proxyUrl, false, 4000);
   } catch (e) {}
 
   throw new Error(`Kunne ikke koble til live API for ${country}`);
