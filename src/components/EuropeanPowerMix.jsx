@@ -10,7 +10,7 @@ import {
 import { Globe, Calendar, Layers, PieChart, TrendingUp, Info, RefreshCw, ChevronDown, AlertTriangle } from 'lucide-react';
 
 export default function EuropeanPowerMix() {
-  const [selectedCountry, setSelectedCountry] = useState('de');
+  const [selectedCountry, setSelectedCountry] = useState('no');
   const [periodType, setPeriodType] = useState('YEAR'); // Default to current calendar year
 
   const currentYr = new Date().getFullYear();
