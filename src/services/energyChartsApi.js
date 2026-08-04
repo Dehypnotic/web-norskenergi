@@ -135,7 +135,7 @@ export function getDatesForISOWeek(year, week) {
 /**
  * Helper to fetch with strict timeout and JSON schema validation
  */
-async function fetchWithTimeout(url, isAllOriginsGet = false, timeoutMs = 1800) {
+async function fetchWithTimeout(url, isAllOriginsGet = false, timeoutMs = 4000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -180,13 +180,13 @@ async function fetchRawDataChunk(country, startStr, endStr) {
   // 3. AllOrigins Raw endpoint (Primary for production)
   try {
     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
-    return await fetchWithTimeout(proxyUrl, false, 2000);
+    return await fetchWithTimeout(proxyUrl, false, 4000);
   } catch (e) {}
 
   // 4. AllOrigins GET wrapper endpoint (Secondary for production)
   try {
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
-    return await fetchWithTimeout(proxyUrl, true, 2000);
+    return await fetchWithTimeout(proxyUrl, true, 4000);
   } catch (e) {}
 
   throw new Error(`Kunne ikke hente live-data for ${country} (${startStr} til ${endStr})`);

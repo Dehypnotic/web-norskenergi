@@ -163,9 +163,15 @@ export default function EuropeanPowerMix() {
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               Europeisk Kraftmiks
-              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-cyan-400 font-mono font-medium border border-slate-700">
-                Energy-Charts API
-              </span>
+              {data?.isFallback ? (
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-500/40 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 text-amber-400" /> MODELLVISNING
+                </span>
+              ) : (
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/40 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> LIVE API
+                </span>
+              )}
             </h2>
             <p className="text-xs text-slate-400">
               Offentlig netto strømproduksjon fordelt på fornybar, fossil og utveksling for europiske land
