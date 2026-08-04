@@ -261,6 +261,9 @@ export default function ZonePrices({ zonePrices, isLoading }) {
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Zap className="w-5 h-5 text-cyan-400" />
               Spotpriser per Prisområde (NO1 - NO5)
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> LIVE API
+              </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5 capitalize">
               {includeStromstotte ? 'Priser inkludert 90% statlig strømstøtte' : 'Standard rene spotpriser'} • {formatDateLabel(selectedDate)}

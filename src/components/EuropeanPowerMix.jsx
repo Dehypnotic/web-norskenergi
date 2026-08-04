@@ -294,20 +294,9 @@ export default function EuropeanPowerMix() {
             {/* Title Bar inside Chart */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-800">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-lg font-bold text-white">
-                    Offentlig netto strømproduksjon i {countryInfo.name} ({dateRange.titleLabel})
-                  </h3>
-                  {data?.isFallback ? (
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3 text-amber-400" /> MODELL
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono font-bold flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> LIVE API
-                    </span>
-                  )}
-                </div>
+                <h3 className="text-lg font-bold text-white mb-1">
+                  Offentlig netto strømproduksjon i {countryInfo.name} ({dateRange.titleLabel})
+                </h3>
                 <p className="text-xs text-slate-400">
                   Datakilde: Fraunhofer ISE Energy-Charts API (CC BY 4.0)
                 </p>
