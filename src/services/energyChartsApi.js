@@ -133,16 +133,27 @@ export function getDatesForISOWeek(year, week) {
 }
 
 /**
- * Helper to fetch with strict timeout to avoid long hangs on slow CORS proxies
+ * Helper to fetch with strict timeout and JSON schema validation
  */
-async function fetchWithTimeout(url, timeoutMs = 3000) {
+async function fetchWithTimeout(url, isAllOriginsGet = false, timeoutMs = 4500) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const raw = await res.json();
+    
+    let data = raw;
+    if (isAllOriginsGet && raw.contents) {
+      data = typeof raw.contents === 'string' ? JSON.parse(raw.contents) : raw.contents;
+    }
+
+    if (!data || data.error || !data.production_types || !data.unix_seconds) {
+      throw new Error(data?.error || 'Ugyldig Energy-Charts datastruktur');
+    }
+
+    return data;
   } catch (err) {
     clearTimeout(timer);
     throw err;
@@ -156,35 +167,29 @@ async function fetchRawDataChunk(country, startStr, endStr) {
   const devProxyUrl = `/api/energy-charts/public_power?country=${country}&start=${startStr}&end=${endStr}`;
   const directUrl = `${BASE_URL}?country=${country}&start=${startStr}&end=${endStr}`;
 
-  // 1. Local Vite dev server proxy (Fast!)
+  // 1. Local Vite dev server proxy (Fastest in local dev)
   try {
-    return await fetchWithTimeout(devProxyUrl, 2000);
+    return await fetchWithTimeout(devProxyUrl, false, 2000);
   } catch (e) {}
 
-  // 2. Direct fetch
+  // 2. Direct fetch (In case browser CORS is enabled)
   try {
-    return await fetchWithTimeout(directUrl, 2000);
+    return await fetchWithTimeout(directUrl, false, 2000);
   } catch (e) {}
 
-  // 3. CorsProxy.io (Primary Fast CORS Proxy)
-  try {
-    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(directUrl)}`;
-    return await fetchWithTimeout(proxyUrl, 3500);
-  } catch (e) {}
-
-  // 4. CorsProxy.org (Secondary Fast CORS Proxy)
-  try {
-    const proxyUrl = `https://corsproxy.org/?${encodeURIComponent(directUrl)}`;
-    return await fetchWithTimeout(proxyUrl, 3500);
-  } catch (e) {}
-
-  // 5. AllOrigins (Fallback)
+  // 3. AllOrigins Raw endpoint (Primary for production)
   try {
     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
-    return await fetchWithTimeout(proxyUrl, 3500);
+    return await fetchWithTimeout(proxyUrl, false, 5000);
   } catch (e) {}
 
-  throw new Error(`Kunne ikke hente data for ${country} (${startStr} til ${endStr})`);
+  // 4. AllOrigins GET wrapper endpoint (Secondary for production)
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
+    return await fetchWithTimeout(proxyUrl, true, 5000);
+  } catch (e) {}
+
+  throw new Error(`Kunne ikke hente live-data for ${country} (${startStr} til ${endStr})`);
 }
 
 /**
