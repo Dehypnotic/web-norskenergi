@@ -86,7 +86,8 @@ const RENEWABLE_TYPES = new Set([
   'Hydro pumped storage',
   'Biomass',
   'Waste renewable',
-  'Geothermal'
+  'Geothermal',
+  'Other renewables'
 ]);
 
 const FOSSIL_TYPES = new Set([
@@ -371,7 +372,9 @@ export function processEnergyChartsData(rawData, periodType = 'DAY') {
     }))
     .sort((a, b) => b.gwh - a.gwh);
 
-  // Build aggregated segments (Renewable vs Fossil vs Trading)
+  const totalNonRenewableGWh = Math.max(0, totalGenerationGWh - totalRenewableGWh);
+
+  // Build aggregated segments (Renewable vs Fossil/Non-Renewable)
   const aggregatedSegments = [
     {
       name: 'Renewable',
@@ -383,8 +386,8 @@ export function processEnergyChartsData(rawData, periodType = 'DAY') {
     {
       name: 'Fossil',
       label: 'Fossil / Ikke-fornybar',
-      gwh: Math.round(totalFossilGWh * 10) / 10,
-      pct: totalGenerationGWh > 0 ? Math.round((totalFossilGWh / totalGenerationGWh) * 1000) / 10 : 0,
+      gwh: Math.round(totalNonRenewableGWh * 10) / 10,
+      pct: totalGenerationGWh > 0 ? Math.round((totalNonRenewableGWh / totalGenerationGWh) * 1000) / 10 : 0,
       color: '#64748b' // Slate Grey
     }
   ];
@@ -394,7 +397,7 @@ export function processEnergyChartsData(rawData, periodType = 'DAY') {
     totalGenerationGWh: Math.round(totalGenerationGWh * 10) / 10,
     grossTotalGWh: Math.round((totalGenerationGWh + Math.max(0, totalImportExportGWh)) * 10) / 10,
     totalRenewableGWh: Math.round(totalRenewableGWh * 10) / 10,
-    totalFossilGWh: Math.round(totalFossilGWh * 10) / 10,
+    totalFossilGWh: Math.round(totalNonRenewableGWh * 10) / 10,
     renewablePct: totalGenerationGWh > 0 ? Math.round((totalRenewableGWh / totalGenerationGWh) * 1000) / 10 : 0,
     detailedSegments,
     aggregatedSegments,
