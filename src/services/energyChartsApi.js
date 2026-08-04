@@ -135,14 +135,19 @@ export function getDatesForISOWeek(year, week) {
 /**
  * Helper to fetch with strict timeout and JSON schema validation
  */
-async function fetchWithTimeout(url, timeoutMs = 1200) {
+async function fetchWithTimeout(url, isAllOriginsGet = false, timeoutMs = 5000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const raw = await res.json();
+
+    let data = raw;
+    if (isAllOriginsGet && raw.contents) {
+      data = typeof raw.contents === 'string' ? JSON.parse(raw.contents) : raw.contents;
+    }
 
     if (!data || data.error || !data.production_types || !data.unix_seconds) {
       throw new Error(data?.error || 'Ugyldig Energy-Charts datastruktur');
@@ -156,20 +161,32 @@ async function fetchWithTimeout(url, timeoutMs = 1200) {
 }
 
 /**
- * Fetch raw JSON chunk from Energy-Charts (fast local/direct check before instant fallback)
+ * Fetch raw JSON chunk from Energy-Charts with CORS proxy fallbacks for static hosts
  */
 async function fetchRawDataChunk(country, startStr, endStr) {
   const devProxyUrl = `/api/energy-charts/public_power?country=${country}&start=${startStr}&end=${endStr}`;
   const directUrl = `${BASE_URL}?country=${country}&start=${startStr}&end=${endStr}`;
 
-  // 1. Local Vite dev server proxy (Works 100% on local machine in ~150ms)
+  // 1. Local Vite dev server proxy (Fastest on local machine, ~150ms)
   try {
-    return await fetchWithTimeout(devProxyUrl, 1200);
+    return await fetchWithTimeout(devProxyUrl, false, 1200);
   } catch (e) {}
 
   // 2. Direct fetch (In case browser CORS policy permits or extension is active)
   try {
-    return await fetchWithTimeout(directUrl, 1200);
+    return await fetchWithTimeout(directUrl, false, 1200);
+  } catch (e) {}
+
+  // 3. AllOrigins GET wrapper endpoint (Primary CORS proxy for production GitHub Pages)
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
+    return await fetchWithTimeout(proxyUrl, true, 5000);
+  } catch (e) {}
+
+  // 4. CorsProxy.org (Secondary CORS proxy fallback)
+  try {
+    const proxyUrl = `https://corsproxy.org/?${encodeURIComponent(directUrl)}`;
+    return await fetchWithTimeout(proxyUrl, false, 4000);
   } catch (e) {}
 
   throw new Error(`Kunne ikke koble til live API for ${country}`);
