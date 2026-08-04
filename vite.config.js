@@ -8,6 +8,15 @@ export default defineConfig({
   build: {
     outDir: 'docs', // Builds production bundle directly to /docs folder for instant GitHub Pages deployment
   },
+  server: {
+    proxy: {
+      '/api/energy-charts': {
+        target: 'https://api.energy-charts.info',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/energy-charts/, '')
+      }
+    }
+  },
   plugins: [
     react(),
     tailwindcss()

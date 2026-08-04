@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, Zap, Activity, TrendingDown, Droplet, MapPin, Calendar } from 'lucide-react';
+import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, Zap, Activity, TrendingDown, Droplet, MapPin, Calendar, Globe } from 'lucide-react';
 import ReservoirChart from './ReservoirChart';
+import EuropeanPowerMix from './EuropeanPowerMix';
 import { RESERVOIR_AREAS } from '../services/nveApi';
 
 export default function HistoricalStats({ monthlyData = [], annualData = [], isLoading }) {
@@ -129,28 +130,29 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Database className="w-5 h-5 text-cyan-400" />
-            SSB & NVE Kraftstatistikk
+            Kraftstatistikk (SSB, NVE & Energy-Charts)
           </h2>
           <p className="text-xs text-slate-400">
-            Historisk import, eksport, produksjon og vannmagasiner fra SSB Statbank & NVE
+            Historisk import, eksport, produksjonsmikser og vannmagasiner fra SSB, NVE & Fraunhofer ISE
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           
-          {/* Main Category Dropdown (Eksport og Import / Produksjon og Forbruk / Vannmagasin) */}
+          {/* Main Category Dropdown */}
           <select
             value={categoryMode}
             onChange={(e) => handleCategoryModeChange(e.target.value)}
             className="bg-slate-900 border border-slate-700 text-cyan-300 font-bold text-xs rounded-xl px-3.5 py-2 outline-none focus:border-cyan-400 cursor-pointer shadow-lg shadow-cyan-500/10"
           >
-            <option value="EXPORT_IMPORT">Eksport og Import</option>
-            <option value="PROD_CONS">Produksjon og Forbruk</option>
-            <option value="RESERVOIR">Vannmagasin (Fyllingsgrad)</option>
+            <option value="EXPORT_IMPORT">Eksport og Import (SSB)</option>
+            <option value="PROD_CONS">Produksjon og Forbruk (SSB)</option>
+            <option value="RESERVOIR">Vannmagasin (NVE)</option>
+            <option value="EUROPEAN_MIX">Europeisk Kraftmiks (Energy-Charts)</option>
           </select>
 
-          {/* Controls for SSB views (hidden when Vannmagasin is selected) */}
-          {categoryMode !== 'RESERVOIR' ? (
+          {/* Controls for SSB views */}
+          {(categoryMode === 'EXPORT_IMPORT' || categoryMode === 'PROD_CONS') && (
             <>
               {/* Monthly vs Annual Toggle */}
               <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-semibold">
@@ -186,7 +188,10 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                 </select>
               )}
             </>
-          ) : (
+          )}
+
+          {/* Controls for NVE Reservoir */}
+          {categoryMode === 'RESERVOIR' && (
             <>
               {/* Area Selector for NVE Vannmagasin */}
               <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold">
@@ -231,8 +236,10 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
         </div>
       </div>
 
-      {/* Render Vannmagasin (NVE Line Chart View) */}
-      {categoryMode === 'RESERVOIR' ? (
+      {/* Render Selected View */}
+      {categoryMode === 'EUROPEAN_MIX' ? (
+        <EuropeanPowerMix />
+      ) : categoryMode === 'RESERVOIR' ? (
         <ReservoirChart selectedAreaId={reservoirAreaId} selectedYear={reservoirYear} />
       ) : (
         <>
