@@ -135,7 +135,7 @@ export function getDatesForISOWeek(year, week) {
 /**
  * Helper to fetch with strict timeout and JSON schema validation
  */
-async function fetchWithTimeout(url, isAllOriginsGet = false, timeoutMs = 4500) {
+async function fetchWithTimeout(url, isAllOriginsGet = false, timeoutMs = 1800) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -169,24 +169,24 @@ async function fetchRawDataChunk(country, startStr, endStr) {
 
   // 1. Local Vite dev server proxy (Fastest in local dev)
   try {
-    return await fetchWithTimeout(devProxyUrl, false, 2000);
+    return await fetchWithTimeout(devProxyUrl, false, 1500);
   } catch (e) {}
 
   // 2. Direct fetch (In case browser CORS is enabled)
   try {
-    return await fetchWithTimeout(directUrl, false, 2000);
+    return await fetchWithTimeout(directUrl, false, 1500);
   } catch (e) {}
 
   // 3. AllOrigins Raw endpoint (Primary for production)
   try {
     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
-    return await fetchWithTimeout(proxyUrl, false, 5000);
+    return await fetchWithTimeout(proxyUrl, false, 2000);
   } catch (e) {}
 
   // 4. AllOrigins GET wrapper endpoint (Secondary for production)
   try {
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`;
-    return await fetchWithTimeout(proxyUrl, true, 5000);
+    return await fetchWithTimeout(proxyUrl, true, 2000);
   } catch (e) {}
 
   throw new Error(`Kunne ikke hente live-data for ${country} (${startStr} til ${endStr})`);

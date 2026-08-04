@@ -275,16 +275,6 @@ export default function EuropeanPowerMix() {
           {/* Main Visualizations: Dual Donut Charts */}
           <div className="glass-card p-6 lg:p-8 rounded-2xl border border-slate-800 bg-slate-950/95 space-y-6">
             
-            {/* Offline / Fallback Warning Banner if API was blocked */}
-            {data?.isFallback && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-3">
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-                <div>
-                  <span className="font-bold">Nettverksadvarsel (Estinert modellvisning):</span> Kunne ikke koble direkte til live Energy-Charts API (muligens blokkert av en nettleserutvidelse eller adblocker). Viser estimert historisk datasettsammensetning for {countryInfo.name}.
-                </div>
-              </div>
-            )}
-
             {/* Title Bar inside Chart */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-800">
               <div>
@@ -292,7 +282,7 @@ export default function EuropeanPowerMix() {
                   Offentlig netto strømproduksjon i {countryInfo.name} ({dateRange.titleLabel})
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Datakilde: Fraunhofer ISE Energy-Charts API (CC BY 4.0)
+                  Datakilde: Fraunhofer ISE Energy-Charts {data?.isFallback ? '(Statistisk modell)' : '(Live API)'}
                 </p>
               </div>
 
