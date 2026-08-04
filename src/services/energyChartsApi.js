@@ -133,36 +133,55 @@ export function getDatesForISOWeek(year, week) {
 }
 
 /**
- * Fetch raw JSON chunk from Energy-Charts with multi-proxy fallback
+ * Helper to fetch with strict timeout to avoid long hangs on slow CORS proxies
+ */
+async function fetchWithTimeout(url, timeoutMs = 3000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+/**
+ * Fetch raw JSON chunk from Energy-Charts with multi-proxy fallback & strict timeouts
  */
 async function fetchRawDataChunk(country, startStr, endStr) {
   const devProxyUrl = `/api/energy-charts/public_power?country=${country}&start=${startStr}&end=${endStr}`;
   const directUrl = `${BASE_URL}?country=${country}&start=${startStr}&end=${endStr}`;
 
-  // 1. Local Vite dev server proxy
+  // 1. Local Vite dev server proxy (Fast!)
   try {
-    const res = await fetch(devProxyUrl);
-    if (res.ok) return await res.json();
+    return await fetchWithTimeout(devProxyUrl, 2000);
   } catch (e) {}
 
   // 2. Direct fetch
   try {
-    const res = await fetch(directUrl);
-    if (res.ok) return await res.json();
+    return await fetchWithTimeout(directUrl, 2000);
   } catch (e) {}
 
-  // 3. AllOrigins proxy
-  try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
-    const res = await fetch(proxyUrl);
-    if (res.ok) return await res.json();
-  } catch (e) {}
-
-  // 4. CorsProxy.io
+  // 3. CorsProxy.io (Primary Fast CORS Proxy)
   try {
     const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(directUrl)}`;
-    const res = await fetch(proxyUrl);
-    if (res.ok) return await res.json();
+    return await fetchWithTimeout(proxyUrl, 3500);
+  } catch (e) {}
+
+  // 4. CorsProxy.org (Secondary Fast CORS Proxy)
+  try {
+    const proxyUrl = `https://corsproxy.org/?${encodeURIComponent(directUrl)}`;
+    return await fetchWithTimeout(proxyUrl, 3500);
+  } catch (e) {}
+
+  // 5. AllOrigins (Fallback)
+  try {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+    return await fetchWithTimeout(proxyUrl, 3500);
   } catch (e) {}
 
   throw new Error(`Kunne ikke hente data for ${country} (${startStr} til ${endStr})`);
