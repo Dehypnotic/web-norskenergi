@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, Zap, Activity, TrendingDown, Droplet, MapPin, Calendar, Globe } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, Zap, Activity, TrendingDown, Droplet, MapPin, Calendar, Globe, AlertTriangle, RefreshCw } from 'lucide-react';
 import ReservoirChart from './ReservoirChart';
 import EuropeanPowerMix from './EuropeanPowerMix';
 import { RESERVOIR_AREAS } from '../services/nveApi';
+import { fetchEnergyChartsCBET, formatDateStr, getDatesForISOWeek } from '../services/energyChartsApi';
 
 export default function HistoricalStats({ monthlyData = [], annualData = [], isLoading }) {
   const [categoryMode, setCategoryMode] = useState(() => {
@@ -24,6 +25,94 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
   const [reservoirYear, setReservoirYear] = useState(() => {
     return localStorage.getItem('norsk_kraftpuls_reservoir_year') || '2026';
   });
+
+  const MONTH_NAMES_NO = ['Januar', 'Februar', 'Mars', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Desember'];
+  const currentYr = new Date().getFullYear();
+  const currentMo = new Date().getMonth() + 1;
+  const currentDy = new Date().getDate();
+
+  const [subCategory, setSubCategory] = useState(() => {
+    return localStorage.getItem('norsk_kraftpuls_exchange_subcategory') || 'FRESH_ZONE';
+  });
+
+  const [cbetZone, setCbetZone] = useState(() => {
+    return localStorage.getItem('norsk_kraftpuls_exchange_zone') || 'ALL';
+  });
+
+  const [cbetPeriodType, setCbetPeriodType] = useState(() => {
+    return localStorage.getItem('norsk_kraftpuls_exchange_period_type') || 'YEAR';
+  });
+
+  const [cbetYear, setCbetYear] = useState(String(currentYr));
+  const [cbetMonth, setCbetMonth] = useState(String(currentMo));
+  const [cbetWeek, setCbetWeek] = useState('31');
+  const [cbetDay, setCbetDay] = useState(String(currentDy));
+  const [cbetData, setCbetData] = useState(null);
+  const [isCbetLoading, setIsCbetLoading] = useState(false);
+  const [cbetHoveredBar, setCbetHoveredBar] = useState(null);
+  const cbetLeaveTimeoutRef = React.useRef(null);
+
+  const cbetDateRange = useMemo(() => {
+    const yr = parseInt(cbetYear, 10);
+    const mo = parseInt(cbetMonth, 10);
+    const dy = parseInt(cbetDay, 10);
+
+    if (cbetPeriodType === 'YEAR') {
+      return {
+        startStr: `${yr}-01-01`,
+        endStr: `${yr}-12-31`,
+        titleLabel: `År ${yr}`
+      };
+    }
+    if (cbetPeriodType === 'MONTH') {
+      const lastDay = new Date(yr, mo, 0).getDate();
+      const mStr = String(mo).padStart(2, '0');
+      return {
+        startStr: `${yr}-${mStr}-01`,
+        endStr: `${yr}-${mStr}-${String(lastDay).padStart(2, '0')}`,
+        titleLabel: `${MONTH_NAMES_NO[mo - 1]} ${yr}`
+      };
+    }
+    if (cbetPeriodType === 'WEEK') {
+      const dates = getDatesForISOWeek(yr, parseInt(cbetWeek, 10));
+      return {
+        startStr: formatDateStr(dates.start.getFullYear(), dates.start.getMonth() + 1, dates.start.getDate()),
+        endStr: formatDateStr(dates.end.getFullYear(), dates.end.getMonth() + 1, dates.end.getDate()),
+        titleLabel: `Uke ${cbetWeek}, ${yr}`
+      };
+    }
+    // DAY
+    const mStr = String(mo).padStart(2, '0');
+    const dStr = String(dy).padStart(2, '0');
+    return {
+      startStr: `${yr}-${mStr}-${dStr}`,
+      endStr: `${yr}-${mStr}-${dStr}`,
+      titleLabel: `${dy}. ${MONTH_NAMES_NO[mo - 1]} ${yr}`
+    };
+  }, [cbetPeriodType, cbetYear, cbetMonth, cbetWeek, cbetDay]);
+
+  useEffect(() => {
+    if (categoryMode !== 'EXPORT_IMPORT' || subCategory !== 'FRESH_ZONE') return;
+    
+    let isMounted = true;
+    async function loadCBET() {
+      setIsCbetLoading(true);
+      try {
+        const res = await fetchEnergyChartsCBET(cbetDateRange.startStr, cbetDateRange.endStr, cbetPeriodType);
+        if (isMounted) {
+          setCbetData(res);
+        }
+      } catch (err) {
+        console.error('CBET loading error:', err);
+      } finally {
+        if (isMounted) {
+          setIsCbetLoading(false);
+        }
+      }
+    }
+    loadCBET();
+    return () => { isMounted = false; };
+  }, [categoryMode, subCategory, cbetDateRange, cbetPeriodType]);
 
   const [hoveredData, setHoveredData] = useState(null);
   const leaveTimeoutRef = React.useRef(null);
@@ -122,6 +211,505 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
     thermal: totalThermal
   };
 
+  const getAllTotals = () => {
+    if (!cbetData || !cbetData.zoneData) return { imp: 0, exp: 0 };
+    let imp = 0;
+    let exp = 0;
+    Object.values(cbetData.zoneData).forEach(zd => {
+      imp += zd.utlandImport;
+      exp += zd.utlandExport;
+    });
+    return { imp: Math.round(imp * 10) / 10, exp: Math.round(exp * 10) / 10 };
+  };
+
+  const renderFreshZoneExchange = () => {
+    if (isCbetLoading || !cbetData) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+          <div className="w-12 h-12 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin"></div>
+          <p className="text-slate-400 text-sm font-medium">Henter ferske soneutvekslingsdata fra Fraunhofer Energy-Charts...</p>
+        </div>
+      );
+    }
+
+    const isAll = cbetZone === 'ALL';
+    const zd = cbetData.zoneData[isAll ? 'NO1' : cbetZone] || { utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, history: [] };
+    const allTotals = getAllTotals();
+
+    const dispImport = isAll ? allTotals.imp : zd.utlandImport;
+    const dispExport = isAll ? allTotals.exp : zd.utlandExport;
+    const dispNet = dispImport - dispExport;
+    const isNetExp = dispNet < 0;
+
+    const inlandImport = isAll ? 0 : zd.inlandImport;
+    const inlandExport = isAll ? 0 : zd.inlandExport;
+    const inlandNet = inlandImport - inlandExport;
+    const isInlandNetExp = inlandNet < 0;
+
+    const chartHistory = isAll ? cbetData.timeSeries.map((g, idx) => {
+      let utlandImport = 0;
+      let utlandExport = 0;
+      Object.values(cbetData.zoneData).forEach(z => {
+        const item = z.history[idx];
+        if (item) {
+          utlandImport += item.utlandImport;
+          utlandExport += item.utlandExport;
+        }
+      });
+      return {
+        label: g.label,
+        totalImport: Math.round(utlandImport * 10) / 10,
+        totalExport: Math.round(utlandExport * 10) / 10,
+        netExchange: Math.round((utlandImport - utlandExport) * 10) / 10
+      };
+    }) : zd.history;
+
+    const activeHovered = cbetHoveredBar || {
+      label: cbetPeriodType === 'YEAR' ? `Hele året ${cbetYear}` : `Hele perioden (${cbetDateRange.titleLabel})`,
+      isAggregate: true,
+      totalImport: dispImport,
+      totalExport: dispExport,
+      netExchange: dispNet,
+      inlandImport: inlandImport,
+      inlandExport: inlandExport,
+      inlandNet: inlandNet
+    };
+
+    const maxVal = Math.max(...chartHistory.map(d => Math.max(d.totalImport || 0, d.totalExport || 0)), 100);
+
+    return (
+      <div className="space-y-6 animate-fade-in">
+        
+        {cbetData.isFallback && (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-3">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <div>
+              <span className="font-bold">Nettverksadvarsel (Modellvisning):</span> Kunne ikke koble direkte til live Energy-Charts API. Viser estimert historisk utveksling.
+            </div>
+          </div>
+        )}
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Card 1: Import */}
+          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>{isAll ? 'Total Import (Utland)' : 'Utland Import'}</span>
+              <ArrowDownRight className="w-4 h-4 text-rose-400" />
+            </div>
+            <div className="text-2xl font-black font-mono text-rose-400">
+              {dispImport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+            </div>
+            <div className="text-[10px] text-slate-400 mt-1 font-mono">
+              Fysisk innstrømming
+            </div>
+          </div>
+
+          {/* Card 2: Eksport */}
+          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>{isAll ? 'Total Eksport (Utland)' : 'Utland Eksport'}</span>
+              <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-black font-mono text-emerald-400">
+              {dispExport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+            </div>
+            <div className="text-[10px] text-slate-400 mt-1 font-mono">
+              Fysisk utstrømming
+            </div>
+          </div>
+
+          {/* Card 3: Netto Utland */}
+          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>Netto Utland</span>
+              {isNetExp ? (
+                <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <ArrowDownRight className="w-4 h-4 text-rose-400" />
+              )}
+            </div>
+            <div className={`text-2xl font-black font-mono ${isNetExp ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {isNetExp ? 'Eksportoverskudd' : 'Importoverskudd'}
+            </div>
+            <div className={`text-sm font-bold font-mono ${isNetExp ? 'text-emerald-400' : 'text-rose-400'} mt-1`}>
+              {Math.abs(dispNet).toLocaleString('no-NO')} GWh
+            </div>
+          </div>
+
+          {/* Card 4: Inland Balance or Norway Net */}
+          {isAll ? (
+            <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>Handelsbalanse (Norge)</span>
+                <Globe className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="text-2xl font-black font-mono text-cyan-400">
+                {Math.abs(dispNet).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+              </div>
+              <div className="text-[10px] text-slate-300 mt-1 font-semibold">
+                Norge er {dispNet < 0 ? 'NETTO EKSPORTØR 🟢' : 'NETTO IMPORTØR 🟡'}
+              </div>
+            </div>
+          ) : (
+            <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>Innland Utveksling</span>
+                {isInlandNetExp ? (
+                  <ArrowUpRight className="w-4 h-4 text-cyan-400" />
+                ) : (
+                  <ArrowDownRight className="w-4 h-4 text-indigo-400" />
+                )}
+              </div>
+              <div className={`text-2xl font-black font-mono ${isInlandNetExp ? 'text-cyan-400' : 'text-indigo-400'}`}>
+                {isInlandNetExp ? 'Netto eksport' : 'Netto import'}
+              </div>
+              <div className={`text-sm font-bold font-mono ${isInlandNetExp ? 'text-cyan-400' : 'text-indigo-400'} mt-1`}>
+                {Math.abs(inlandNet).toLocaleString('no-NO')} GWh
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Chart Card */}
+        <div className="glass-card p-6 rounded-2xl border border-slate-800 bg-slate-950/90 space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <BarChart2 className="w-5 h-5 text-cyan-400" />
+                Utvekslingsprofil ({isAll ? 'Hele Norge' : cbetZone}) – GWh
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Søyler oppover = Import (grønn) • Søyler nedover = Eksport (rød) • Datakilde: Fraunhofer ISE
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs font-semibold">
+              <span className="flex items-center gap-1 text-emerald-400">
+                <span className="w-3 h-3 rounded bg-emerald-500/80 inline-block"></span> Import
+              </span>
+              <span className="flex items-center gap-1 text-rose-400">
+                <span className="w-3 h-3 rounded bg-rose-500/80 inline-block"></span> Eksport
+              </span>
+            </div>
+          </div>
+
+          {/* Interactive Hover Summary Bar */}
+          <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="font-bold text-white">
+                {activeHovered.isAggregate ? 'Samlet for perioden:' : 'Periode:'} {activeHovered.label}
+              </span>
+              <span className="text-emerald-400 font-semibold">Total Import: {activeHovered.totalImport.toLocaleString()} GWh</span>
+              <span className="text-rose-400 font-semibold">Total Eksport: {activeHovered.totalExport.toLocaleString()} GWh</span>
+              <span className={`font-bold ${activeHovered.netExchange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                Netto Utland: {activeHovered.netExchange >= 0 ? `+${activeHovered.netExchange.toLocaleString()}` : activeHovered.netExchange.toLocaleString()} GWh
+              </span>
+              {!isAll && (
+                <span className={`font-semibold ${activeHovered.inlandNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  Netto Innland: {activeHovered.inlandNet >= 0 ? `+${activeHovered.inlandNet.toLocaleString()}` : activeHovered.inlandNet.toLocaleString()} GWh
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Centered Baseline Bar Chart */}
+          <div className="w-full overflow-x-auto">
+            <div className="min-w-[600px] h-72 flex items-center justify-between border-b border-slate-800/80 relative px-2 pt-4 pb-4">
+              {/* Baseline center line */}
+              <div className="absolute left-0 right-0 h-px bg-slate-800 top-1/2" />
+
+              {chartHistory.map((item, idx) => {
+                const impPct = (item.totalImport / maxVal) * 50; // max 50% height
+                const expPct = (item.totalExport / maxVal) * 50; // max 50% height
+
+                const isHovered = cbetHoveredBar?.label === item.label;
+
+                const handleMouseEnter = () => {
+                  if (cbetLeaveTimeoutRef.current) {
+                    clearTimeout(cbetLeaveTimeoutRef.current);
+                    cbetLeaveTimeoutRef.current = null;
+                  }
+                  setCbetHoveredBar({
+                    label: item.label,
+                    totalImport: item.totalImport,
+                    totalExport: item.totalExport,
+                    netExchange: item.netExchange,
+                    inlandImport: item.inlandImport || 0,
+                    inlandExport: item.inlandExport || 0,
+                    inlandNet: (item.inlandImport || 0) - (item.inlandExport || 0)
+                  });
+                };
+
+                const handleMouseLeave = () => {
+                  if (cbetLeaveTimeoutRef.current) clearTimeout(cbetLeaveTimeoutRef.current);
+                  cbetLeaveTimeoutRef.current = setTimeout(() => {
+                    setCbetHoveredBar(null);
+                  }, 1000);
+                };
+
+                return (
+                  <div
+                    key={idx}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                    className="flex-1 flex flex-col items-center h-full justify-center group relative cursor-pointer"
+                  >
+                    {/* Top half (Imports) */}
+                    <div className="w-full flex items-end justify-center h-1/2 pb-px">
+                      <div
+                        className={`w-3 bg-emerald-500/80 rounded-t transition-all ${
+                          isHovered ? 'bg-emerald-400 shadow-md shadow-emerald-500/30 w-3.5' : 'group-hover:bg-emerald-400'
+                        }`}
+                        style={{ height: `${impPct * 2}%` }}
+                      />
+                    </div>
+
+                    {/* Bottom half (Exports) */}
+                    <div className="w-full flex items-start justify-center h-1/2 pt-px">
+                      <div
+                        className={`w-3 bg-rose-500/80 rounded-b transition-all ${
+                          isHovered ? 'bg-rose-400 shadow-md shadow-rose-500/30 w-3.5' : 'group-hover:bg-rose-400'
+                        }`}
+                        style={{ height: `${expPct * 2}%` }}
+                      />
+                    </div>
+
+                    {/* Hover tooltip for quick label */}
+                    <span className="absolute bottom-0 text-[9px] text-slate-500 font-mono group-hover:text-white transition-all select-none">
+                      {item.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Connection Specific Table */}
+          <div className="pt-4 border-t border-slate-800 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              Spesifisert utveksling på utenlands- og innlandslinjer
+            </h4>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {isAll ? (
+                <>
+                  {/* SE */}
+                  <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🇸🇪 Sverige</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">Forbindelser i NO1, NO3, NO4</div>
+                    </div>
+                    <div className="text-right font-mono text-xs font-bold">
+                      <span className="text-emerald-400">+{Math.round((cbetData.zoneData.NO1.swedenImport + cbetData.zoneData.NO3.swedenImport + cbetData.zoneData.NO4.swedenImport)*10)/10} GWh</span>
+                      <div className="text-rose-400">-{Math.round((cbetData.zoneData.NO1.swedenExport + cbetData.zoneData.NO3.swedenExport + cbetData.zoneData.NO4.swedenExport)*10)/10} GWh</div>
+                    </div>
+                  </div>
+                  {/* DE */}
+                  <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🇩🇪 Tyskland</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">NordLink (NO2 ↔ DE)</div>
+                    </div>
+                    <div className="text-right font-mono text-xs font-bold">
+                      <span className="text-emerald-400">+{cbetData.zoneData.NO2.germanyImport.toLocaleString()} GWh</span>
+                      <div className="text-rose-400">-{cbetData.zoneData.NO2.germanyExport.toLocaleString()} GWh</div>
+                    </div>
+                  </div>
+                  {/* UK */}
+                  <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🇬🇧 Storbritannia</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">North Sea Link (NO2 ↔ UK)</div>
+                    </div>
+                    <div className="text-right font-mono text-xs font-bold">
+                      <span className="text-emerald-400">+{cbetData.zoneData.NO2.ukImport.toLocaleString()} GWh</span>
+                      <div className="text-rose-400">-{cbetData.zoneData.NO2.ukExport.toLocaleString()} GWh</div>
+                    </div>
+                  </div>
+                  {/* NL */}
+                  <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🇳🇱 Nederland</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">NorNed (NO2 ↔ NL)</div>
+                    </div>
+                    <div className="text-right font-mono text-xs font-bold">
+                      <span className="text-emerald-400">+{cbetData.zoneData.NO2.netherlandsImport.toLocaleString()} GWh</span>
+                      <div className="text-rose-400">-{cbetData.zoneData.NO2.netherlandsExport.toLocaleString()} GWh</div>
+                    </div>
+                  </div>
+                  {/* DK */}
+                  <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🇩🇰 Danmark</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">Skagerrak (NO2 ↔ DK)</div>
+                    </div>
+                    <div className="text-right font-mono text-xs font-bold">
+                      <span className="text-emerald-400">+{cbetData.zoneData.NO2.denmarkImport.toLocaleString()} GWh</span>
+                      <div className="text-rose-400">-{cbetData.zoneData.NO2.denmarkExport.toLocaleString()} GWh</div>
+                    </div>
+                  </div>
+                  {/* FI */}
+                  <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>🇫🇮 Finland</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">Pasvik-linjen (NO4 ↔ FI)</div>
+                    </div>
+                    <div className="text-right font-mono text-xs font-bold">
+                      <span className="text-emerald-400">+{cbetData.zoneData.NO4.finlandImport.toLocaleString()} GWh</span>
+                      <div className="text-rose-400">-{cbetData.zoneData.NO4.finlandExport.toLocaleString()} GWh</div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Selected zone connections */}
+                  {cbetZone === 'NO1' && (
+                    <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-white">🇸🇪 Sverige (SE3)</div>
+                        <div className="text-[10px] text-slate-500">Hasle-korridoren (NO1 ↔ SE)</div>
+                      </div>
+                      <div className="text-right font-mono text-xs font-bold">
+                        <span className="text-emerald-400">+{zd.swedenImport.toLocaleString()} GWh</span>
+                        <div className="text-rose-400">-{zd.swedenExport.toLocaleString()} GWh</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {cbetZone === 'NO2' && (
+                    <>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇩🇪 Tyskland (NordLink)</div>
+                          <div className="text-[10px] text-slate-500">Kabel (NO2 ↔ DE)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{zd.germanyImport.toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{zd.germanyExport.toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇬🇧 Storbritannia (NSL)</div>
+                          <div className="text-[10px] text-slate-500">Kabel (NO2 ↔ UK)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{zd.ukImport.toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{zd.ukExport.toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇱 Nederland (NorNed)</div>
+                          <div className="text-[10px] text-slate-500">Kabel (NO2 ↔ NL)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{zd.netherlandsImport.toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{zd.netherlandsExport.toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇩🇰 Danmark (Skagerrak)</div>
+                          <div className="text-[10px] text-slate-500">Kabel (NO2 ↔ DK)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{zd.denmarkImport.toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{zd.denmarkExport.toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {cbetZone === 'NO3' && (
+                    <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-white">🇸🇪 Sverige (SE2)</div>
+                        <div className="text-[10px] text-slate-500">Nea-korridoren (NO3 ↔ SE)</div>
+                      </div>
+                      <div className="text-right font-mono text-xs font-bold">
+                        <span className="text-emerald-400">+{zd.swedenImport.toLocaleString()} GWh</span>
+                        <div className="text-rose-400">-{zd.swedenExport.toLocaleString()} GWh</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {cbetZone === 'NO4' && (
+                    <>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇸🇪 Sverige (SE1)</div>
+                          <div className="text-[10px] text-slate-500">Ofoten-Ritsem (NO4 ↔ SE)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{zd.swedenImport.toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{zd.swedenExport.toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇫🇮 Finland</div>
+                          <div className="text-[10px] text-slate-500">Pasvik (NO4 ↔ FI)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{zd.finlandImport.toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{zd.finlandExport.toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {cbetZone === 'NO5' && (
+                    <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-center col-span-full">
+                      <div className="text-xs text-slate-400">
+                        Vestlandet (NO5) har ingen direkte utenlandsforbindelser. All utveksling skjer internt i Norge.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inland Regional exchanges summary */}
+                  <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/20 flex items-center justify-between col-span-full">
+                    <div>
+                      <div className="text-xs font-bold text-indigo-300">Nasjonalt strømnett (Regional flyt)</div>
+                      <div className="text-[10px] text-indigo-400/80">
+                        {cbetZone === 'NO1' ? 'Flyt med NO2, NO3, NO5' :
+                         cbetZone === 'NO2' ? 'Flyt med NO1, NO5' :
+                         cbetZone === 'NO3' ? 'Flyt med NO1, NO4, NO5' :
+                         cbetZone === 'NO4' ? 'Flyt med NO3' :
+                         'Flyt med NO1, NO2, NO3'}
+                      </div>
+                    </div>
+                    <div className="text-right font-mono text-xs font-bold">
+                      <span className="text-emerald-400">+{zd.inlandImport.toLocaleString()} GWh</span>
+                      <div className="text-rose-400">-{zd.inlandExport.toLocaleString()} GWh</div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       
@@ -145,14 +733,135 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
             onChange={(e) => handleCategoryModeChange(e.target.value)}
             className="bg-slate-900 border border-slate-700 text-cyan-300 font-bold text-xs rounded-xl px-3.5 py-2 outline-none focus:border-cyan-400 cursor-pointer shadow-lg shadow-cyan-500/10"
           >
-            <option value="EXPORT_IMPORT">Eksport og Import (SSB)</option>
+            <option value="EXPORT_IMPORT">Krafthandel & Utveksling</option>
             <option value="PROD_CONS">Produksjon og Forbruk (SSB)</option>
             <option value="RESERVOIR">Vannmagasin (NVE)</option>
             <option value="EUROPEAN_MIX">Europeisk Kraftmiks (Energy-Charts)</option>
           </select>
 
-          {/* Controls for SSB views */}
-          {(categoryMode === 'EXPORT_IMPORT' || categoryMode === 'PROD_CONS') && (
+          {/* Subcategory Toggle for Krafthandel */}
+          {categoryMode === 'EXPORT_IMPORT' && (
+            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-semibold">
+              <button
+                onClick={() => {
+                  setSubCategory('FRESH_ZONE');
+                  localStorage.setItem('norsk_kraftpuls_exchange_subcategory', 'FRESH_ZONE');
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  subCategory === 'FRESH_ZONE' ? 'bg-cyan-500 text-slate-950 shadow-md font-bold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Fersk Soneutveksling
+              </button>
+              <button
+                onClick={() => {
+                  setSubCategory('SSB_HISTORICAL');
+                  localStorage.setItem('norsk_kraftpuls_exchange_subcategory', 'SSB_HISTORICAL');
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  subCategory === 'SSB_HISTORICAL' ? 'bg-cyan-500 text-slate-950 shadow-md font-bold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Historisk (SSB)
+              </button>
+            </div>
+          )}
+
+          {/* Controls for Fraunhofer CBET Exchange */}
+          {categoryMode === 'EXPORT_IMPORT' && subCategory === 'FRESH_ZONE' && (
+            <>
+              {/* Zone Selector */}
+              <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold">
+                <MapPin className="w-4 h-4 text-cyan-400" />
+                <select
+                  value={cbetZone}
+                  onChange={(e) => {
+                    setCbetZone(e.target.value);
+                    localStorage.setItem('norsk_kraftpuls_exchange_zone', e.target.value);
+                  }}
+                  className="bg-transparent text-cyan-300 font-bold outline-none cursor-pointer text-xs"
+                >
+                  <option value="ALL" className="bg-slate-900 text-white">Norge (Nettotal)</option>
+                  <option value="NO1" className="bg-slate-900 text-white">NO1 - Østlandet</option>
+                  <option value="NO2" className="bg-slate-900 text-white">NO2 - Sørlandet</option>
+                  <option value="NO3" className="bg-slate-900 text-white">NO3 - Midt-Norge</option>
+                  <option value="NO4" className="bg-slate-900 text-white">NO4 - Nord-Norge</option>
+                  <option value="NO5" className="bg-slate-900 text-white">NO5 - Vestlandet</option>
+                </select>
+              </div>
+
+              {/* Period Selector (År, Mnd, Uke, Dag) */}
+              <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-semibold">
+                {['YEAR', 'MONTH', 'WEEK', 'DAY'].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => {
+                      setCbetPeriodType(p);
+                      localStorage.setItem('norsk_kraftpuls_exchange_period_type', p);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg transition-all ${
+                      cbetPeriodType === p ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {p === 'YEAR' ? 'År' : p === 'MONTH' ? 'Mnd' : p === 'WEEK' ? 'Uke' : 'Dag'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Year Select dropdown */}
+              <select
+                value={cbetYear}
+                onChange={(e) => setCbetYear(e.target.value)}
+                className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
+
+              {/* Month Select dropdown */}
+              {(cbetPeriodType === 'MONTH' || cbetPeriodType === 'DAY') && (
+                <select
+                  value={cbetMonth}
+                  onChange={(e) => setCbetMonth(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500 cursor-pointer"
+                >
+                  {MONTH_NAMES_NO.map((m, idx) => (
+                    <option key={idx} value={String(idx + 1)}>{m}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Week Select dropdown */}
+              {cbetPeriodType === 'WEEK' && (
+                <select
+                  value={cbetWeek}
+                  onChange={(e) => setCbetWeek(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500 cursor-pointer"
+                >
+                  {Array.from({ length: 53 }, (_, i) => i + 1).map(wk => (
+                    <option key={wk} value={String(wk)}>Uke {wk}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Day Select dropdown */}
+              {cbetPeriodType === 'DAY' && (
+                <select
+                  value={cbetDay}
+                  onChange={(e) => setCbetDay(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500 cursor-pointer"
+                >
+                  {Array.from({ length: new Date(parseInt(cbetYear, 10), parseInt(cbetMonth, 10), 0).getDate() }, (_, i) => i + 1).map(dy => (
+                    <option key={dy} value={String(dy)}>Dag {dy}</option>
+                  ))}
+                </select>
+              )}
+            </>
+          )}
+
+          {/* Controls for SSB views (PROD_CONS or EXPORT_IMPORT with SSB) */}
+          {(categoryMode === 'PROD_CONS' || (categoryMode === 'EXPORT_IMPORT' && subCategory === 'SSB_HISTORICAL')) && (
             <>
               {/* Monthly vs Annual Toggle */}
               <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs font-semibold">
@@ -241,6 +950,8 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
         <EuropeanPowerMix />
       ) : categoryMode === 'RESERVOIR' ? (
         <ReservoirChart selectedAreaId={reservoirAreaId} selectedYear={reservoirYear} />
+      ) : categoryMode === 'EXPORT_IMPORT' && subCategory === 'FRESH_ZONE' ? (
+        renderFreshZoneExchange()
       ) : (
         <>
           {/* Aggregate KPI Summary Cards - Adapts to Category Selection */}
