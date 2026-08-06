@@ -493,22 +493,67 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           </div>
 
           {/* Card 4: Handelsbalanse / Nettobalanse */}
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80 flex flex-col justify-between">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>{isAll ? 'Handelsbalanse (Norge)' : `Nettobalanse (${cbetZone})`}</span>
-              <Globe className="w-4 h-4 text-cyan-400" />
-            </div>
-            <div className={`text-2xl font-black font-mono ${dispNet < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {dispNet < 0 ? '-' : '+'}{Math.abs(dispNet).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-            <div className="text-[10px] text-slate-300 mt-1 font-semibold">
-              {isAll ? (
-                <span>Norge er {dispNet < 0 ? 'NETTO EKSPORTØR 🔴' : 'NETTO IMPORTØR 🟢'}</span>
-              ) : (
-                <span>Sone er {dispNet < 0 ? 'NETTO EKSPORTØR 🔴' : 'NETTO IMPORTØR 🟢'}</span>
-              )}
-            </div>
-          </div>
+          {(() => {
+            const totNet = Math.round((dispNet + inlandNet) * 10) / 10;
+            return (
+              <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80 flex flex-col justify-between space-y-2">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                  <span>{isAll ? 'Handelsbalanse (Norge)' : `Nettobalanse (${cbetZone})`}</span>
+                  <Globe className="w-4 h-4 text-cyan-400" />
+                </div>
+
+                {isAll ? (
+                  <>
+                    <div className="space-y-0.5">
+                      <div className={`text-xl sm:text-2xl font-black font-mono ${dispNet < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        {dispNet < 0 ? '-' : '+'}{Math.abs(dispNet).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+                      </div>
+                      <div className="text-[11px] font-bold text-slate-300">
+                        Norge er {dispNet < 0 ? 'NETTO EKSPORTØR 🔴' : 'NETTO IMPORTØR 🟢'}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-1.5 border-t border-slate-800/80 text-[11px] font-mono">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Import (Utland):</span>
+                        <span className="text-emerald-400 font-semibold">{dispImport.toLocaleString('no-NO')} GWh</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Eksport (Utland):</span>
+                        <span className="text-rose-400 font-semibold">{dispExport.toLocaleString('no-NO')} GWh</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-0.5">
+                      <div className={`text-xl sm:text-2xl font-black font-mono ${totNet < 0 ? 'text-rose-400' : totNet > 0 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                        {totNet > 0 ? `+${totNet.toLocaleString('no-NO')}` : totNet.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+                      </div>
+                      <div className="text-[11px] font-bold text-slate-300">
+                        {totNet < 0 ? 'Netto utlevering (Eksport) 🔴' : totNet > 0 ? 'Netto mottak (Import) 🟢' : 'I balanse (0 GWh)'}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-1.5 border-t border-slate-800/80 text-[11px] font-mono">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Netto Utland:</span>
+                        <span className={`font-semibold ${dispNet > 0 ? 'text-emerald-400' : dispNet < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                          {dispNet > 0 ? `+${dispNet.toLocaleString('no-NO')}` : dispNet.toLocaleString('no-NO')} GWh
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Netto Innland:</span>
+                        <span className={`font-semibold ${inlandNet > 0 ? 'text-emerald-400' : inlandNet < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                          {inlandNet > 0 ? `+${inlandNet.toLocaleString('no-NO')}` : inlandNet.toLocaleString('no-NO')} GWh
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
         </div>
 
