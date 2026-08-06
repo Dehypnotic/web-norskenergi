@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, Zap, Activity, TrendingDown, Droplet, MapPin, Calendar, Globe, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Database, Layers, BarChart2, PieChart, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Zap, Activity, TrendingDown, Droplet, MapPin, Calendar, Globe, AlertTriangle, RefreshCw } from 'lucide-react';
 import ReservoirChart from './ReservoirChart';
 import EuropeanPowerMix from './EuropeanPowerMix';
 import { RESERVOIR_AREAS } from '../services/nveApi';
@@ -258,6 +258,89 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
     const inlandNet = inlandImport - inlandExport;
     const isInlandNetExp = inlandNet < 0;
 
+    const partnerStats = (() => {
+      if (!cbetData || !cbetData.zoneData) return null;
+
+      if (isAll) {
+        const seImp = (cbetData.zoneData.NO1?.swedenImport || 0) + (cbetData.zoneData.NO3?.swedenImport || 0) + (cbetData.zoneData.NO4?.swedenImport || 0);
+        const seExp = (cbetData.zoneData.NO1?.swedenExport || 0) + (cbetData.zoneData.NO3?.swedenExport || 0) + (cbetData.zoneData.NO4?.swedenExport || 0);
+        const deImp = cbetData.zoneData.NO2?.germanyImport || 0;
+        const deExp = cbetData.zoneData.NO2?.germanyExport || 0;
+        const ukImp = cbetData.zoneData.NO2?.ukImport || 0;
+        const ukExp = cbetData.zoneData.NO2?.ukExport || 0;
+        const nlImp = cbetData.zoneData.NO2?.netherlandsImport || 0;
+        const nlExp = cbetData.zoneData.NO2?.netherlandsExport || 0;
+        const dkImp = cbetData.zoneData.NO2?.denmarkImport || 0;
+        const dkExp = cbetData.zoneData.NO2?.denmarkExport || 0;
+        const fiImp = cbetData.zoneData.NO4?.finlandImport || 0;
+        const fiExp = cbetData.zoneData.NO4?.finlandExport || 0;
+
+        const partners = [
+          { name: 'Sverige 🇸🇪', imp: seImp, exp: seExp },
+          { name: 'Tyskland 🇩🇪', imp: deImp, exp: deExp },
+          { name: 'Storbritannia 🇬🇧', imp: ukImp, exp: ukExp },
+          { name: 'Nederland 🇳🇱', imp: nlImp, exp: nlExp },
+          { name: 'Danmark 🇩🇰', imp: dkImp, exp: dkExp },
+          { name: 'Finland 🇫🇮', imp: fiImp, exp: fiExp }
+        ];
+
+        const totImp = partners.reduce((s, p) => s + p.imp, 0);
+        const totExp = partners.reduce((s, p) => s + p.exp, 0);
+
+        const topImp = [...partners].sort((a, b) => b.imp - a.imp)[0];
+        const topExp = [...partners].sort((a, b) => b.exp - a.exp)[0];
+
+        return {
+          impPartner: topImp && topImp.imp > 0 ? topImp.name : 'Ingen',
+          impPct: totImp > 0 && topImp ? Math.round((topImp.imp / totImp) * 100) : 0,
+          expPartner: topExp && topExp.exp > 0 ? topExp.name : 'Ingen',
+          expPct: totExp > 0 && topExp ? Math.round((topExp.exp / totExp) * 100) : 0
+        };
+      } else {
+        const zdData = cbetData.zoneData[cbetZone];
+        if (!zdData) return null;
+
+        const list = [];
+        if (cbetZone === 'NO1') {
+          list.push({ name: 'Sverige 🇸🇪', imp: zdData.swedenImport || 0, exp: zdData.swedenExport || 0 });
+          list.push({ name: 'NO5 (Vestland)', imp: zdData.flow5to1 || 0, exp: 0 });
+          list.push({ name: 'NO3 (Midt-Norge)', imp: zdData.flow3to1 || 0, exp: 0 });
+          list.push({ name: 'NO2 (Sørlandet)', imp: 0, exp: zdData.flow1to2 || 0 });
+        } else if (cbetZone === 'NO2') {
+          list.push({ name: 'Tyskland 🇩🇪', imp: zdData.germanyImport || 0, exp: zdData.germanyExport || 0 });
+          list.push({ name: 'Storbritannia 🇬🇧', imp: zdData.ukImport || 0, exp: zdData.ukExport || 0 });
+          list.push({ name: 'Nederland 🇳🇱', imp: zdData.netherlandsImport || 0, exp: zdData.netherlandsExport || 0 });
+          list.push({ name: 'Danmark 🇩🇰', imp: zdData.denmarkImport || 0, exp: zdData.denmarkExport || 0 });
+          list.push({ name: 'NO1 (Østlandet)', imp: zdData.flow1to2 || 0, exp: 0 });
+          list.push({ name: 'NO5 (Vestlandet)', imp: zdData.flow5to2 || 0, exp: 0 });
+        } else if (cbetZone === 'NO3') {
+          list.push({ name: 'Sverige 🇸🇪', imp: zdData.swedenImport || 0, exp: zdData.swedenExport || 0 });
+          list.push({ name: 'NO4 (Nord-Norge)', imp: zdData.flow4to3 || 0, exp: 0 });
+          list.push({ name: 'NO1 (Østlandet)', imp: 0, exp: zdData.flow3to1 || 0 });
+        } else if (cbetZone === 'NO4') {
+          list.push({ name: 'Sverige 🇸🇪', imp: zdData.swedenImport || 0, exp: zdData.swedenExport || 0 });
+          list.push({ name: 'Finland 🇫🇮', imp: zdData.finlandImport || 0, exp: zdData.finlandExport || 0 });
+          list.push({ name: 'NO3 (Midt-Norge)', imp: 0, exp: zdData.flow4to3 || 0 });
+        } else if (cbetZone === 'NO5') {
+          list.push({ name: 'NO1 (Østlandet)', imp: 0, exp: zdData.flow5to1 || 0 });
+          list.push({ name: 'NO2 (Sørlandet)', imp: 0, exp: zdData.flow5to2 || 0 });
+        }
+
+        const totImp = (zdData.utlandImport || 0) + (zdData.inlandImport || 0);
+        const totExp = (zdData.utlandExport || 0) + (zdData.inlandExport || 0);
+
+        const topImp = [...list].sort((a, b) => b.imp - a.imp)[0];
+        const topExp = [...list].sort((a, b) => b.exp - a.exp)[0];
+
+        return {
+          impPartner: topImp && topImp.imp > 0 ? topImp.name : 'Ingen',
+          impPct: totImp > 0 && topImp ? Math.round((topImp.imp / totImp) * 100) : 0,
+          expPartner: topExp && topExp.exp > 0 ? topExp.name : 'Ingen',
+          expPct: totExp > 0 && topExp ? Math.round((topExp.exp / totExp) * 100) : 0
+        };
+      }
+    })();
+
     const chartHistory = isAll ? cbetData.timeSeries.map((g, idx) => {
       let utlandImport = 0;
       let utlandExport = 0;
@@ -268,11 +351,17 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           utlandExport += item.utlandExport;
         }
       });
+      const roundedImp = Math.round(utlandImport * 10) / 10;
+      const roundedExp = Math.round(utlandExport * 10) / 10;
       return {
         label: g.label,
-        totalImport: Math.round(utlandImport * 10) / 10,
-        totalExport: Math.round(utlandExport * 10) / 10,
-        netExchange: Math.round((utlandImport - utlandExport) * 10) / 10
+        utlandImport: roundedImp,
+        utlandExport: roundedExp,
+        inlandImport: 0,
+        inlandExport: 0,
+        totalImport: roundedImp,
+        totalExport: roundedExp,
+        netExchange: Math.round((roundedImp - roundedExp) * 10) / 10
       };
     }) : zd.history;
 
@@ -318,84 +407,108 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
-          {/* Card 1: Import */}
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>{isAll ? 'Total Import (Utland)' : 'Utland Import'}</span>
+          {/* Card 1: Import & Mottak */}
+          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80 flex flex-col justify-between space-y-2">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>{isAll ? 'Import (Utland)' : 'Import & Innlands mottak'}</span>
               <ArrowDownRight className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-2xl font-black font-mono text-emerald-400">
-              {dispImport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-            <div className="text-[10px] text-slate-400 mt-1 font-mono">
-              Fysisk innstrømming
-            </div>
-          </div>
+            
+            <div className="space-y-1.5">
+              <div>
+                <div className="text-[10px] text-slate-400 uppercase font-semibold">Import (Utland)</div>
+                <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400">
+                  {dispImport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+                </div>
+              </div>
 
-          {/* Card 2: Eksport */}
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>{isAll ? 'Total Eksport (Utland)' : 'Utland Eksport'}</span>
-              <ArrowUpRight className="w-4 h-4 text-rose-400" />
-            </div>
-            <div className="text-2xl font-black font-mono text-rose-400">
-              {dispExport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
-            </div>
-            <div className="text-[10px] text-slate-400 mt-1 font-mono">
-              Fysisk utstrømming
-            </div>
-          </div>
-
-          {/* Card 3: Netto Utland */}
-          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Netto Utland</span>
-              {isNetExp ? (
-                <ArrowUpRight className="w-4 h-4 text-rose-400" />
-              ) : (
-                <ArrowDownRight className="w-4 h-4 text-emerald-400" />
+              {!isAll && (
+                <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Mottak (Innland):</span>
+                  <span className="text-xs font-bold font-mono text-teal-400">
+                    {inlandImport.toLocaleString('no-NO')} GWh
+                  </span>
+                </div>
               )}
             </div>
-            <div className={`text-2xl font-black font-mono ${isNetExp ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {isNetExp ? 'Eksportoverskudd' : 'Importoverskudd'}
-            </div>
-            <div className={`text-sm font-bold font-mono ${isNetExp ? 'text-rose-400' : 'text-emerald-400'} mt-1`}>
-              {Math.abs(dispNet).toLocaleString('no-NO')} GWh
+
+            <div className="text-[10px] text-slate-400 pt-1 font-mono border-t border-slate-900">
+              {isAll ? 'Fysisk innstrømming fra utlandet' : `Totalt inn: Math.round((dispImport + inlandImport) * 10) / 10 GWh`.replace('Math.round((dispImport + inlandImport) * 10) / 10', (Math.round((dispImport + inlandImport) * 10) / 10).toLocaleString('no-NO'))}
             </div>
           </div>
 
-          {/* Card 4: Inland Balance or Norway Net */}
-          {isAll ? (
-            <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-                <span>Handelsbalanse (Norge)</span>
-                <Globe className="w-4 h-4 text-cyan-400" />
+          {/* Card 2: Eksport & Leveranse */}
+          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80 flex flex-col justify-between space-y-2">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>{isAll ? 'Eksport (Utland)' : 'Eksport & Innlands leveranse'}</span>
+              <ArrowUpRight className="w-4 h-4 text-rose-400" />
+            </div>
+
+            <div className="space-y-1.5">
+              <div>
+                <div className="text-[10px] text-slate-400 uppercase font-semibold">Eksport (Utland)</div>
+                <div className="text-xl sm:text-2xl font-black font-mono text-rose-400">
+                  {dispExport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+                </div>
               </div>
-              <div className={`text-2xl font-black font-mono ${dispNet < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {Math.abs(dispNet).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+
+              {!isAll && (
+                <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold">Leveranse (Innland):</span>
+                  <span className="text-xs font-bold font-mono text-rose-300">
+                    {inlandExport.toLocaleString('no-NO')} GWh
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="text-[10px] text-slate-400 pt-1 font-mono border-t border-slate-900">
+              {isAll ? 'Fysisk utstrømming til utlandet' : `Totalt ut: Math.round((dispExport + inlandExport) * 10) / 10 GWh`.replace('Math.round((dispExport + inlandExport) * 10) / 10', (Math.round((dispExport + inlandExport) * 10) / 10).toLocaleString('no-NO'))}
+            </div>
+          </div>
+
+          {/* Card 3: Største Utvekslingspartnere */}
+          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80 flex flex-col justify-between">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>Hovedpartnere</span>
+              <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 font-medium">Største Import:</span>
+                <span className="font-mono font-bold text-slate-100">
+                  <span className="text-emerald-400">{partnerStats?.impPct || 0}%</span> {partnerStats?.impPartner || 'Ingen'}
+                </span>
               </div>
-              <div className="text-[10px] text-slate-300 mt-1 font-semibold">
-                Norge er {dispNet < 0 ? 'NETTO EKSPORTØR 🔴' : 'NETTO IMPORTØR 🟢'}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 font-medium">Største Eksport:</span>
+                <span className="font-mono font-bold text-slate-100">
+                  <span className="text-rose-400">{partnerStats?.expPct || 0}%</span> {partnerStats?.expPartner || 'Ingen'}
+                </span>
               </div>
             </div>
-          ) : (
-            <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-                <span>Innland Utveksling</span>
-                {isInlandNetExp ? (
-                  <ArrowUpRight className="w-4 h-4 text-rose-400" />
-                ) : (
-                  <ArrowDownRight className="w-4 h-4 text-emerald-400" />
-                )}
-              </div>
-              <div className={`text-2xl font-black font-mono ${isInlandNetExp ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {isInlandNetExp ? 'Netto eksport' : 'Netto import'}
-              </div>
-              <div className={`text-sm font-bold font-mono ${isInlandNetExp ? 'text-rose-400' : 'text-emerald-400'} mt-1`}>
-                {Math.abs(inlandNet).toLocaleString('no-NO')} GWh
-              </div>
+            <div className="text-[10px] text-slate-400 mt-2 font-mono">
+              Høyeste utvekslingsandel
             </div>
-          )}
+          </div>
+
+          {/* Card 4: Handelsbalanse / Nettobalanse */}
+          <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80 flex flex-col justify-between">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>{isAll ? 'Handelsbalanse (Norge)' : `Nettobalanse (${cbetZone})`}</span>
+              <Globe className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className={`text-2xl font-black font-mono ${dispNet < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+              {dispNet < 0 ? '-' : '+'}{Math.abs(dispNet).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
+            </div>
+            <div className="text-[10px] text-slate-300 mt-1 font-semibold">
+              {isAll ? (
+                <span>Norge er {dispNet < 0 ? 'NETTO EKSPORTØR 🔴' : 'NETTO IMPORTØR 🟢'}</span>
+              ) : (
+                <span>Sone er {dispNet < 0 ? 'NETTO EKSPORTØR 🔴' : 'NETTO IMPORTØR 🟢'}</span>
+              )}
+            </div>
+          </div>
 
         </div>
 
@@ -478,13 +591,13 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                 const isHovered = cbetHoveredBar?.label === item.label;
                 const displayLabel = (cbetPeriodType === 'MONTH' && item.label) ? item.label.split('.')[0] : item.label;
 
-                const uImp = item.utlandImport || 0;
+                const uImp = item.utlandImport !== undefined ? item.utlandImport : (item.totalImport || 0);
                 const iImp = item.inlandImport || 0;
                 const totImp = item.totalImport || (uImp + iImp);
                 const uImpPct = totImp > 0 ? (uImp / totImp) * 100 : 100;
                 const iImpPct = totImp > 0 ? (iImp / totImp) * 100 : 0;
 
-                const uExp = item.utlandExport || 0;
+                const uExp = item.utlandExport !== undefined ? item.utlandExport : (item.totalExport || 0);
                 const iExp = item.inlandExport || 0;
                 const totExp = item.totalExport || (uExp + iExp);
                 const uExpPct = totExp > 0 ? (uExp / totExp) * 100 : 100;
