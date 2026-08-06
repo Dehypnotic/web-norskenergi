@@ -76,8 +76,8 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
     if (cbetPeriodType === 'WEEK') {
       const dates = getDatesForISOWeek(yr, parseInt(cbetWeek, 10));
       return {
-        startStr: formatDateStr(dates.start.getFullYear(), dates.start.getMonth() + 1, dates.start.getDate()),
-        endStr: formatDateStr(dates.end.getFullYear(), dates.end.getMonth() + 1, dates.end.getDate()),
+        startStr: dates.startStr,
+        endStr: dates.endStr,
         titleLabel: `Uke ${cbetWeek}, ${yr}`
       };
     }
@@ -222,8 +222,20 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
     return { imp: Math.round(imp * 10) / 10, exp: Math.round(exp * 10) / 10 };
   };
 
+  const resetCbetFilters = () => {
+    setCbetZone('ALL');
+    setCbetPeriodType('YEAR');
+    setCbetYear(String(currentYr));
+    setCbetMonth(String(currentMo));
+    setCbetWeek('31');
+    setCbetDay(String(currentDy));
+    localStorage.removeItem('norsk_kraftpuls_exchange_zone');
+    localStorage.removeItem('norsk_kraftpuls_exchange_period_type');
+  };
+
   const renderFreshZoneExchange = () => {
-    if (isCbetLoading || !cbetData) {
+    try {
+      if (isCbetLoading || !cbetData) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
           <div className="w-12 h-12 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin"></div>
@@ -275,7 +287,13 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
       inlandNet: inlandNet
     };
 
-    const maxVal = Math.max(...chartHistory.map(d => Math.max(d.totalImport || 0, d.totalExport || 0)), 100);
+    const maxVal = Math.max(...chartHistory.map(d => Math.max(d.totalImport || 0, d.totalExport || 0)), 0.1);
+    const numItems = chartHistory.length;
+    const barWidthClass = numItems <= 7 
+      ? 'w-[75%] max-w-[96px]' 
+      : numItems <= 15 
+        ? 'w-[75%] max-w-[56px]' 
+        : 'w-[75%] max-w-[28px]';
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -284,7 +302,15 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-3">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
             <div>
-              <span className="font-bold">Nettverksadvarsel (Modellvisning):</span> Kunne ikke koble direkte til live Energy-Charts API. Viser estimert historisk utveksling.
+              {cbetDateRange.startStr > new Date().toISOString().slice(0, 10) ? (
+                <>
+                  <span className="font-bold">Framtidig periode:</span> Energy-Charts og Fraunhofer har kun historiske utvekslingsdata opp til dags dato. Framtidige tall er ikke tilgjengelige.
+                </>
+              ) : (
+                <>
+                  <span className="font-bold">Nettverksadvarsel (Modellvisning):</span> Kunne ikke hente live-data direkte fra Energy-Charts. Viser estimert utveksling.
+                </>
+              )}
             </div>
           </div>
         )}
@@ -296,9 +322,9 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
               <span>{isAll ? 'Total Import (Utland)' : 'Utland Import'}</span>
-              <ArrowDownRight className="w-4 h-4 text-rose-400" />
+              <ArrowDownRight className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-2xl font-black font-mono text-rose-400">
+            <div className="text-2xl font-black font-mono text-emerald-400">
               {dispImport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
             </div>
             <div className="text-[10px] text-slate-400 mt-1 font-mono">
@@ -310,9 +336,9 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
           <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
               <span>{isAll ? 'Total Eksport (Utland)' : 'Utland Eksport'}</span>
-              <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+              <ArrowUpRight className="w-4 h-4 text-rose-400" />
             </div>
-            <div className="text-2xl font-black font-mono text-emerald-400">
+            <div className="text-2xl font-black font-mono text-rose-400">
               {dispExport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
             </div>
             <div className="text-[10px] text-slate-400 mt-1 font-mono">
@@ -325,15 +351,15 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
               <span>Netto Utland</span>
               {isNetExp ? (
-                <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                <ArrowUpRight className="w-4 h-4 text-rose-400" />
               ) : (
-                <ArrowDownRight className="w-4 h-4 text-rose-400" />
+                <ArrowDownRight className="w-4 h-4 text-emerald-400" />
               )}
             </div>
-            <div className={`text-2xl font-black font-mono ${isNetExp ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <div className={`text-2xl font-black font-mono ${isNetExp ? 'text-rose-400' : 'text-emerald-400'}`}>
               {isNetExp ? 'Eksportoverskudd' : 'Importoverskudd'}
             </div>
-            <div className={`text-sm font-bold font-mono ${isNetExp ? 'text-emerald-400' : 'text-rose-400'} mt-1`}>
+            <div className={`text-sm font-bold font-mono ${isNetExp ? 'text-rose-400' : 'text-emerald-400'} mt-1`}>
               {Math.abs(dispNet).toLocaleString('no-NO')} GWh
             </div>
           </div>
@@ -345,11 +371,11 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                 <span>Handelsbalanse (Norge)</span>
                 <Globe className="w-4 h-4 text-cyan-400" />
               </div>
-              <div className="text-2xl font-black font-mono text-cyan-400">
+              <div className={`text-2xl font-black font-mono ${dispNet < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                 {Math.abs(dispNet).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
               </div>
               <div className="text-[10px] text-slate-300 mt-1 font-semibold">
-                Norge er {dispNet < 0 ? 'NETTO EKSPORTØR 🟢' : 'NETTO IMPORTØR 🟡'}
+                Norge er {dispNet < 0 ? 'NETTO EKSPORTØR 🔴' : 'NETTO IMPORTØR 🟢'}
               </div>
             </div>
           ) : (
@@ -357,15 +383,15 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
                 <span>Innland Utveksling</span>
                 {isInlandNetExp ? (
-                  <ArrowUpRight className="w-4 h-4 text-cyan-400" />
+                  <ArrowUpRight className="w-4 h-4 text-rose-400" />
                 ) : (
-                  <ArrowDownRight className="w-4 h-4 text-indigo-400" />
+                  <ArrowDownRight className="w-4 h-4 text-emerald-400" />
                 )}
               </div>
-              <div className={`text-2xl font-black font-mono ${isInlandNetExp ? 'text-cyan-400' : 'text-indigo-400'}`}>
+              <div className={`text-2xl font-black font-mono ${isInlandNetExp ? 'text-rose-400' : 'text-emerald-400'}`}>
                 {isInlandNetExp ? 'Netto eksport' : 'Netto import'}
               </div>
-              <div className={`text-sm font-bold font-mono ${isInlandNetExp ? 'text-cyan-400' : 'text-indigo-400'} mt-1`}>
+              <div className={`text-sm font-bold font-mono ${isInlandNetExp ? 'text-rose-400' : 'text-emerald-400'} mt-1`}>
                 {Math.abs(inlandNet).toLocaleString('no-NO')} GWh
               </div>
             </div>
@@ -415,17 +441,54 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
             </div>
           </div>
 
+          {/* Legend Color Key */}
+          <div className="flex items-center justify-end gap-3.5 text-[10px] font-semibold text-slate-400 pt-2 px-2">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />
+              <span>Utland Import</span>
+            </div>
+            {!isAll && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-teal-400 inline-block" />
+                <span>Innland Import</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block" />
+              <span>Utland Eksport</span>
+            </div>
+            {!isAll && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-rose-300 inline-block" />
+                <span>Innland Eksport</span>
+              </div>
+            )}
+          </div>
+
           {/* Centered Baseline Bar Chart */}
           <div className="w-full overflow-x-auto">
-            <div className="min-w-[600px] h-72 flex items-center justify-between border-b border-slate-800/80 relative px-2 pt-4 pb-4">
+            <div className="min-w-[600px] h-72 flex items-center justify-between border-b border-slate-800/80 relative px-2 pt-2 pb-6">
               {/* Baseline center line */}
-              <div className="absolute left-0 right-0 h-px bg-slate-800 top-1/2" />
+              <div className="absolute left-0 right-0 h-px bg-slate-800 top-[45%]" />
 
               {chartHistory.map((item, idx) => {
-                const impPct = (item.totalImport / maxVal) * 50; // max 50% height
-                const expPct = (item.totalExport / maxVal) * 50; // max 50% height
+                const impPct = item.totalImport > 0 ? Math.max((item.totalImport / maxVal) * 92, 4) : 0;
+                const expPct = item.totalExport > 0 ? Math.max((item.totalExport / maxVal) * 92, 4) : 0;
 
                 const isHovered = cbetHoveredBar?.label === item.label;
+                const displayLabel = (cbetPeriodType === 'MONTH' && item.label) ? item.label.split('.')[0] : item.label;
+
+                const uImp = item.utlandImport || 0;
+                const iImp = item.inlandImport || 0;
+                const totImp = item.totalImport || (uImp + iImp);
+                const uImpPct = totImp > 0 ? (uImp / totImp) * 100 : 100;
+                const iImpPct = totImp > 0 ? (iImp / totImp) * 100 : 0;
+
+                const uExp = item.utlandExport || 0;
+                const iExp = item.inlandExport || 0;
+                const totExp = item.totalExport || (uExp + iExp);
+                const uExpPct = totExp > 0 ? (uExp / totExp) * 100 : 100;
+                const iExpPct = totExp > 0 ? (iExp / totExp) * 100 : 0;
 
                 const handleMouseEnter = () => {
                   if (cbetLeaveTimeoutRef.current) {
@@ -455,31 +518,41 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                     key={idx}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
-                    className="flex-1 flex flex-col items-center h-full justify-center group relative cursor-pointer"
+                    className="flex-1 flex flex-col items-center h-full justify-center group relative cursor-pointer pb-5"
                   >
                     {/* Top half (Imports) */}
                     <div className="w-full flex items-end justify-center h-1/2 pb-px">
                       <div
-                        className={`w-3 bg-emerald-500/80 rounded-t transition-all ${
-                          isHovered ? 'bg-emerald-400 shadow-md shadow-emerald-500/30 w-3.5' : 'group-hover:bg-emerald-400'
+                        className={`${barWidthClass} rounded-t overflow-hidden flex flex-col-reverse transition-all ${
+                          isHovered ? 'shadow-md shadow-emerald-500/30 scale-x-110 ring-1 ring-emerald-400' : ''
                         }`}
-                        style={{ height: `${impPct * 2}%` }}
-                      />
+                        style={{ height: `${impPct}%` }}
+                      >
+                        {/* Bottom: Utland Import */}
+                        <div className="w-full bg-emerald-500/90 hover:bg-emerald-400 transition-colors" style={{ height: `${uImpPct}%` }} title={`Utland Import: ${uImp} GWh`} />
+                        {/* Top: Innland Import */}
+                        <div className="w-full bg-teal-400/90 hover:bg-teal-300 transition-colors" style={{ height: `${iImpPct}%` }} title={`Innland Import: ${iImp} GWh`} />
+                      </div>
                     </div>
 
                     {/* Bottom half (Exports) */}
                     <div className="w-full flex items-start justify-center h-1/2 pt-px">
                       <div
-                        className={`w-3 bg-rose-500/80 rounded-b transition-all ${
-                          isHovered ? 'bg-rose-400 shadow-md shadow-rose-500/30 w-3.5' : 'group-hover:bg-rose-400'
+                        className={`${barWidthClass} rounded-b overflow-hidden flex flex-col transition-all ${
+                          isHovered ? 'shadow-md shadow-rose-500/30 scale-x-110 ring-1 ring-rose-400' : ''
                         }`}
-                        style={{ height: `${expPct * 2}%` }}
-                      />
+                        style={{ height: `${expPct}%` }}
+                      >
+                        {/* Top (Baseline): Utland Export */}
+                        <div className="w-full bg-rose-500/90 hover:bg-rose-400 transition-colors" style={{ height: `${uExpPct}%` }} title={`Utland Eksport: ${uExp} GWh`} />
+                        {/* Bottom: Innland Export */}
+                        <div className="w-full bg-rose-300/90 hover:bg-rose-200 transition-colors" style={{ height: `${iExpPct}%` }} title={`Innland Eksport: ${iExp} GWh`} />
+                      </div>
                     </div>
 
                     {/* Hover tooltip for quick label */}
-                    <span className="absolute bottom-0 text-[9px] text-slate-500 font-mono group-hover:text-white transition-all select-none">
-                      {item.label}
+                    <span className="absolute bottom-0 text-[9px] sm:text-[10px] text-slate-500 font-mono group-hover:text-white transition-all select-none font-bold whitespace-nowrap">
+                      {displayLabel}
                     </span>
                   </div>
                 );
@@ -579,16 +652,45 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                 <>
                   {/* Selected zone connections */}
                   {cbetZone === 'NO1' && (
-                    <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-bold text-white">🇸🇪 Sverige (SE3)</div>
-                        <div className="text-[10px] text-slate-500">Hasle-korridoren (NO1 ↔ SE)</div>
+                    <>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇸🇪 Sverige (SE3)</div>
+                          <div className="text-[10px] text-slate-500">Hasle-korridoren (Utland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{(zd.swedenImport || 0).toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{(zd.swedenExport || 0).toLocaleString()} GWh</div>
+                        </div>
                       </div>
-                      <div className="text-right font-mono text-xs font-bold">
-                        <span className="text-emerald-400">+{zd.swedenImport.toLocaleString()} GWh</span>
-                        <div className="text-rose-400">-{zd.swedenExport.toLocaleString()} GWh</div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO5 (Vestlandet)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{(zd.flow5to1 || 0).toLocaleString()} GWh</span>
+                        </div>
                       </div>
-                    </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO3 (Midt-Norge)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{(zd.flow3to1 || 0).toLocaleString()} GWh</span>
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO2 (Sørlandet)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <div className="text-rose-400">-{(zd.flow1to2 || 0).toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                    </>
                   )}
 
                   {cbetZone === 'NO2' && (
@@ -596,57 +698,95 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                       <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-bold text-white">🇩🇪 Tyskland (NordLink)</div>
-                          <div className="text-[10px] text-slate-500">Kabel (NO2 ↔ DE)</div>
+                          <div className="text-[10px] text-slate-500">Kabel (Utland)</div>
                         </div>
                         <div className="text-right font-mono text-xs font-bold">
-                          <span className="text-emerald-400">+{zd.germanyImport.toLocaleString()} GWh</span>
-                          <div className="text-rose-400">-{zd.germanyExport.toLocaleString()} GWh</div>
+                          <span className="text-emerald-400">+{(zd.germanyImport || 0).toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{(zd.germanyExport || 0).toLocaleString()} GWh</div>
                         </div>
                       </div>
                       <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-bold text-white">🇬🇧 Storbritannia (NSL)</div>
-                          <div className="text-[10px] text-slate-500">Kabel (NO2 ↔ UK)</div>
+                          <div className="text-[10px] text-slate-500">Kabel (Utland)</div>
                         </div>
                         <div className="text-right font-mono text-xs font-bold">
-                          <span className="text-emerald-400">+{zd.ukImport.toLocaleString()} GWh</span>
-                          <div className="text-rose-400">-{zd.ukExport.toLocaleString()} GWh</div>
+                          <span className="text-emerald-400">+{(zd.ukImport || 0).toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{(zd.ukExport || 0).toLocaleString()} GWh</div>
                         </div>
                       </div>
                       <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-bold text-white">🇳🇱 Nederland (NorNed)</div>
-                          <div className="text-[10px] text-slate-500">Kabel (NO2 ↔ NL)</div>
+                          <div className="text-[10px] text-slate-500">Kabel (Utland)</div>
                         </div>
                         <div className="text-right font-mono text-xs font-bold">
-                          <span className="text-emerald-400">+{zd.netherlandsImport.toLocaleString()} GWh</span>
-                          <div className="text-rose-400">-{zd.netherlandsExport.toLocaleString()} GWh</div>
+                          <span className="text-emerald-400">+{(zd.netherlandsImport || 0).toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{(zd.netherlandsExport || 0).toLocaleString()} GWh</div>
                         </div>
                       </div>
                       <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-bold text-white">🇩🇰 Danmark (Skagerrak)</div>
-                          <div className="text-[10px] text-slate-500">Kabel (NO2 ↔ DK)</div>
+                          <div className="text-[10px] text-slate-500">Kabel (Utland)</div>
                         </div>
                         <div className="text-right font-mono text-xs font-bold">
-                          <span className="text-emerald-400">+{zd.denmarkImport.toLocaleString()} GWh</span>
-                          <div className="text-rose-400">-{zd.denmarkExport.toLocaleString()} GWh</div>
+                          <span className="text-emerald-400">+{(zd.denmarkImport || 0).toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{(zd.denmarkExport || 0).toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO1 (Østlandet)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{(zd.flow1to2 || 0).toLocaleString()} GWh</span>
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO5 (Vestlandet)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{(zd.flow5to2 || 0).toLocaleString()} GWh</span>
                         </div>
                       </div>
                     </>
                   )}
 
                   {cbetZone === 'NO3' && (
-                    <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-bold text-white">🇸🇪 Sverige (SE2)</div>
-                        <div className="text-[10px] text-slate-500">Nea-korridoren (NO3 ↔ SE)</div>
+                    <>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇸🇪 Sverige (SE2)</div>
+                          <div className="text-[10px] text-slate-500">Nea-korridoren (Utland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{(zd.swedenImport || 0).toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{(zd.swedenExport || 0).toLocaleString()} GWh</div>
+                        </div>
                       </div>
-                      <div className="text-right font-mono text-xs font-bold">
-                        <span className="text-emerald-400">+{zd.swedenImport.toLocaleString()} GWh</span>
-                        <div className="text-rose-400">-{zd.swedenExport.toLocaleString()} GWh</div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO4 (Nord-Norge)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <span className="text-emerald-400">+{(zd.flow4to3 || 0).toLocaleString()} GWh</span>
+                        </div>
                       </div>
-                    </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO1 (Østlandet)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <div className="text-rose-400">-{(zd.flow3to1 || 0).toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                    </>
                   )}
 
                   {cbetZone === 'NO4' && (
@@ -654,51 +794,57 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                       <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-bold text-white">🇸🇪 Sverige (SE1)</div>
-                          <div className="text-[10px] text-slate-500">Ofoten-Ritsem (NO4 ↔ SE)</div>
+                          <div className="text-[10px] text-slate-500">Ofoten-Ritsem (Utland)</div>
                         </div>
                         <div className="text-right font-mono text-xs font-bold">
-                          <span className="text-emerald-400">+{zd.swedenImport.toLocaleString()} GWh</span>
-                          <div className="text-rose-400">-{zd.swedenExport.toLocaleString()} GWh</div>
+                          <span className="text-emerald-400">+{(zd.swedenImport || 0).toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{(zd.swedenExport || 0).toLocaleString()} GWh</div>
                         </div>
                       </div>
                       <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-bold text-white">🇫🇮 Finland</div>
-                          <div className="text-[10px] text-slate-500">Pasvik (NO4 ↔ FI)</div>
+                          <div className="text-[10px] text-slate-500">Pasvik-linjen (Utland)</div>
                         </div>
                         <div className="text-right font-mono text-xs font-bold">
-                          <span className="text-emerald-400">+{zd.finlandImport.toLocaleString()} GWh</span>
-                          <div className="text-rose-400">-{zd.finlandExport.toLocaleString()} GWh</div>
+                          <span className="text-emerald-400">+{(zd.finlandImport || 0).toLocaleString()} GWh</span>
+                          <div className="text-rose-400">-{(zd.finlandExport || 0).toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO3 (Midt-Norge)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <div className="text-rose-400">-{(zd.flow4to3 || 0).toLocaleString()} GWh</div>
                         </div>
                       </div>
                     </>
                   )}
 
                   {cbetZone === 'NO5' && (
-                    <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-center col-span-full">
-                      <div className="text-xs text-slate-400">
-                        Vestlandet (NO5) har ingen direkte utenlandsforbindelser. All utveksling skjer internt i Norge.
+                    <>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO1 (Østlandet)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <div className="text-rose-400">-{(zd.flow5to1 || 0).toLocaleString()} GWh</div>
+                        </div>
                       </div>
-                    </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">🇳🇴 NO2 (Sørlandet)</div>
+                          <div className="text-[10px] text-slate-500">Regional utveksling (Innland)</div>
+                        </div>
+                        <div className="text-right font-mono text-xs font-bold">
+                          <div className="text-rose-400">-{(zd.flow5to2 || 0).toLocaleString()} GWh</div>
+                        </div>
+                      </div>
+                    </>
                   )}
-
-                  {/* Inland Regional exchanges summary */}
-                  <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/20 flex items-center justify-between col-span-full">
-                    <div>
-                      <div className="text-xs font-bold text-indigo-300">Nasjonalt strømnett (Regional flyt)</div>
-                      <div className="text-[10px] text-indigo-400/80">
-                        {cbetZone === 'NO1' ? 'Flyt med NO2, NO3, NO5' :
-                         cbetZone === 'NO2' ? 'Flyt med NO1, NO5' :
-                         cbetZone === 'NO3' ? 'Flyt med NO1, NO4, NO5' :
-                         cbetZone === 'NO4' ? 'Flyt med NO3' :
-                         'Flyt med NO1, NO2, NO3'}
-                      </div>
-                    </div>
-                    <div className="text-right font-mono text-xs font-bold">
-                      <span className="text-emerald-400">+{zd.inlandImport.toLocaleString()} GWh</span>
-                      <div className="text-rose-400">-{zd.inlandExport.toLocaleString()} GWh</div>
-                    </div>
-                  </div>
                 </>
               )}
             </div>
@@ -708,6 +854,24 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
 
       </div>
     );
+    } catch (err) {
+      console.error('Error rendering fresh zone exchange:', err);
+      return (
+        <div className="glass-card p-8 rounded-2xl border border-slate-800 bg-slate-950 flex flex-col items-center justify-center text-center gap-4">
+          <AlertTriangle className="w-8 h-8 text-amber-400" />
+          <h3 className="text-lg font-bold text-white">Kunne ikke vise utvekslingsgrafen for valgte filtre</h3>
+          <p className="text-xs text-slate-400 max-w-md">
+            Det oppsto en feil ved beregning av utvekslingen for denne perioden. Klikk på knappen under for å nullstille filtrene.
+          </p>
+          <button
+            onClick={resetCbetFilters}
+            className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" /> Nullstill filtre til År 2026 (Alle soner)
+          </button>
+        </div>
+      );
+    }
   };
 
   return (
@@ -826,9 +990,15 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                   onChange={(e) => setCbetMonth(e.target.value)}
                   className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500 cursor-pointer"
                 >
-                  {MONTH_NAMES_NO.map((m, idx) => (
-                    <option key={idx} value={String(idx + 1)}>{m}</option>
-                  ))}
+                  {MONTH_NAMES_NO.map((m, idx) => {
+                    const now = new Date();
+                    const isFutureMonth = parseInt(cbetYear, 10) === now.getFullYear() && (idx + 1) > (now.getMonth() + 1);
+                    return (
+                      <option key={idx} value={String(idx + 1)} disabled={isFutureMonth}>
+                        {m}{isFutureMonth ? ' (Framtid)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
 
@@ -839,9 +1009,20 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                   onChange={(e) => setCbetWeek(e.target.value)}
                   className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500 cursor-pointer"
                 >
-                  {Array.from({ length: 53 }, (_, i) => i + 1).map(wk => (
-                    <option key={wk} value={String(wk)}>Uke {wk}</option>
-                  ))}
+                  {Array.from({ length: 53 }, (_, i) => i + 1).map(wk => {
+                    const now = new Date();
+                    const d = new Date();
+                    d.setHours(0, 0, 0, 0);
+                    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+                    const week1 = new Date(d.getFullYear(), 0, 4);
+                    const curWk = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+                    const isFutureWk = parseInt(cbetYear, 10) === now.getFullYear() && wk > curWk;
+                    return (
+                      <option key={wk} value={String(wk)} disabled={isFutureWk}>
+                        Uke {wk}{isFutureWk ? ' (Framtid)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
 
@@ -852,9 +1033,15 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                   onChange={(e) => setCbetDay(e.target.value)}
                   className="bg-slate-900 border border-slate-800 text-slate-200 text-xs font-mono font-semibold rounded-xl px-3 py-2 outline-none focus:border-cyan-500 cursor-pointer"
                 >
-                  {Array.from({ length: new Date(parseInt(cbetYear, 10), parseInt(cbetMonth, 10), 0).getDate() }, (_, i) => i + 1).map(dy => (
-                    <option key={dy} value={String(dy)}>Dag {dy}</option>
-                  ))}
+                  {Array.from({ length: new Date(parseInt(cbetYear, 10), parseInt(cbetMonth, 10), 0).getDate() }, (_, i) => i + 1).map(dy => {
+                    const now = new Date();
+                    const isFutureDy = parseInt(cbetYear, 10) === now.getFullYear() && parseInt(cbetMonth, 10) === (now.getMonth() + 1) && dy > now.getDate();
+                    return (
+                      <option key={dy} value={String(dy)} disabled={isFutureDy}>
+                        Dag {dy}{isFutureDy ? ' (Framtid)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
             </>
@@ -960,9 +1147,9 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
               <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
                   <span>Samlet Eksport</span>
-                  <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                  <ArrowUpRight className="w-4 h-4 text-rose-400" />
                 </div>
-                <div className="text-2xl font-black font-mono text-emerald-400">
+                <div className="text-2xl font-black font-mono text-rose-400">
                   {totalExport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
                 </div>
               </div>
@@ -970,9 +1157,9 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
               <div className="glass-card p-5 rounded-2xl border border-slate-800 bg-slate-950/80">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
                   <span>Samlet Import</span>
-                  <ArrowDownRight className="w-4 h-4 text-rose-400" />
+                  <ArrowDownRight className="w-4 h-4 text-emerald-400" />
                 </div>
-                <div className="text-2xl font-black font-mono text-rose-400">
+                <div className="text-2xl font-black font-mono text-emerald-400">
                   {totalImport.toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
                 </div>
               </div>
@@ -981,15 +1168,15 @@ export default function HistoricalStats({ monthlyData = [], annualData = [], isL
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
                   <span>{isNetExport ? 'Netto Eksport' : 'Netto Import'}</span>
                   {isNetExport ? (
-                    <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                    <ArrowUpRight className="w-4 h-4 text-rose-400" />
                   ) : (
-                    <ArrowDownRight className="w-4 h-4 text-rose-400" />
+                    <ArrowDownRight className="w-4 h-4 text-emerald-400" />
                   )}
                 </div>
-                <div className={`text-2xl font-black font-mono ${isNetExport ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <div className={`text-2xl font-black font-mono ${isNetExport ? 'text-rose-400' : 'text-emerald-400'}`}>
                   {Math.abs(netExport).toLocaleString('no-NO')} <span className="text-xs font-normal text-slate-400">GWh</span>
                 </div>
-                <div className={`text-[11px] font-semibold font-mono mt-1 ${isNetExport ? 'text-emerald-400/90' : 'text-rose-400/90'}`}>
+                <div className={`text-[11px] font-semibold font-mono mt-1 ${isNetExport ? 'text-rose-400/90' : 'text-emerald-400/90'}`}>
                   {netSharePercent}% av total produksjon
                 </div>
               </div>

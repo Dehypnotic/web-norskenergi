@@ -150,7 +150,7 @@ async function fetchWithTimeout(url, isAllOriginsGet = false, timeoutMs = 5000) 
       data = typeof raw.contents === 'string' ? JSON.parse(raw.contents) : raw.contents;
     }
 
-    if (!data || data.error || !data.production_types || !data.unix_seconds) {
+    if (!data || data.error || (!data.production_types && !data.data && !data.unix_seconds)) {
       throw new Error(data?.error || 'Ugyldig Energy-Charts datastruktur');
     }
 
@@ -744,7 +744,7 @@ export async function fetchEnergyChartsCBET(startStr, endStr, periodType = 'DAY'
     effEndStr = formatDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate());
   }
 
-  const cacheKey = `ec_cbet_v3_${country}_${startStr}_${effEndStr}_${periodType}`;
+  const cacheKey = `ec_cbet_v4_${country}_${startStr}_${effEndStr}_${periodType}`;
   
   if (cache.has(cacheKey)) {
     return cache.get(cacheKey);
@@ -759,18 +759,35 @@ export async function fetchEnergyChartsCBET(startStr, endStr, periodType = 'DAY'
     }
   } catch (e) {}
 
+  const devProxyUrl = `/api/energy-charts/v2/cbet?country=${country}&start=${startStr}&end=${effEndStr}`;
+  const directUrl = `https://api.energy-charts.info/v2/cbet?country=${country}&start=${startStr}&end=${effEndStr}`;
+  const cfWorkerUrl = `https://energy-charts-proxy.jegrmeg.workers.dev/?url=${encodeURIComponent(directUrl)}`;
+
+  let rawData = null;
+
+  // 1. Try local Vite dev proxy (Fastest on local PC, ~100ms)
   try {
-    const directUrl = `https://api.energy-charts.info/v2/cbet?country=${country}&start=${startStr}&end=${effEndStr}`;
-    const cfWorkerUrl = `https://energy-charts-proxy.jegrmeg.workers.dev/?url=${encodeURIComponent(directUrl)}`;
+    const res = await fetchWithTimeout(devProxyUrl, false, 1500);
+    if (res && (res.data || res.countries)) rawData = res;
+  } catch (e) {}
 
-    const res = await fetch(cfWorkerUrl);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const rawData = await res.json();
+  // 2. Try direct API if CORS allows
+  if (!rawData) {
+    try {
+      const res = await fetchWithTimeout(directUrl, false, 2000);
+      if (res && (res.data || res.countries)) rawData = res;
+    } catch (e) {}
+  }
 
-    if (!rawData || !rawData.data || rawData.data.length === 0) {
-      throw new Error('Invalid or empty CBET data');
-    }
+  // 3. Try Cloudflare Worker
+  if (!rawData) {
+    try {
+      const res = await fetchWithTimeout(cfWorkerUrl, false, 4000);
+      if (res && (res.data || res.countries)) rawData = res;
+    } catch (e) {}
+  }
 
+  if (rawData && (rawData.data || rawData.countries)) {
     const processed = processCBETData(rawData, periodType);
     processed.isFallback = false;
 
@@ -780,12 +797,12 @@ export async function fetchEnergyChartsCBET(startStr, endStr, periodType = 'DAY'
     } catch (e) {}
 
     return processed;
-  } catch (err) {
-    console.warn('Could not fetch CBET data, generating fallback:', err);
-    const fb = getFallbackCBETData(startStr, effEndStr, periodType);
-    fb.isFallback = true;
-    return fb;
   }
+
+  console.warn('Could not fetch CBET data from any source, generating fallback dataset');
+  const fb = getFallbackCBETData(startStr, effEndStr, periodType);
+  fb.isFallback = true;
+  return fb;
 }
 
 function processCBETData(rawData, periodType) {
@@ -841,11 +858,11 @@ function processCBETData(rawData, periodType) {
   const timeSeries = Object.values(labelGroups);
 
   const zoneData = {
-    NO1: { id: 'NO1', name: 'NO1 - Østlandet', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, swedenImport: 0, swedenExport: 0, history: [] },
-    NO2: { id: 'NO2', name: 'NO2 - Sørlandet', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, denmarkImport: 0, denmarkExport: 0, germanyImport: 0, germanyExport: 0, netherlandsImport: 0, netherlandsExport: 0, ukImport: 0, ukExport: 0, history: [] },
-    NO3: { id: 'NO3', name: 'NO3 - Midt-Norge', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, swedenImport: 0, swedenExport: 0, history: [] },
-    NO4: { id: 'NO4', name: 'NO4 - Nord-Norge', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, swedenImport: 0, swedenExport: 0, finlandImport: 0, finlandExport: 0, history: [] },
-    NO5: { id: 'NO5', name: 'NO5 - Vestlandet', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, history: [] }
+    NO1: { id: 'NO1', name: 'NO1 - Østlandet', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, swedenImport: 0, swedenExport: 0, flow5to1: 0, flow3to1: 0, flow1to2: 0, history: [] },
+    NO2: { id: 'NO2', name: 'NO2 - Sørlandet', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, denmarkImport: 0, denmarkExport: 0, germanyImport: 0, germanyExport: 0, netherlandsImport: 0, netherlandsExport: 0, ukImport: 0, ukExport: 0, flow1to2: 0, flow5to2: 0, history: [] },
+    NO3: { id: 'NO3', name: 'NO3 - Midt-Norge', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, swedenImport: 0, swedenExport: 0, flow4to3: 0, flow3to1: 0, history: [] },
+    NO4: { id: 'NO4', name: 'NO4 - Nord-Norge', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, swedenImport: 0, swedenExport: 0, finlandImport: 0, finlandExport: 0, flow4to3: 0, history: [] },
+    NO5: { id: 'NO5', name: 'NO5 - Vestlandet', utlandImport: 0, utlandExport: 0, inlandImport: 0, inlandExport: 0, flow5to1: 0, flow5to2: 0, history: [] }
   };
 
   timeSeries.forEach(group => {
@@ -910,6 +927,9 @@ function processCBETData(rawData, periodType) {
       if (zId === 'NO1') {
         zoneData.NO1.swedenImport += seNO1.imp;
         zoneData.NO1.swedenExport += seNO1.exp;
+        zoneData.NO1.flow5to1 += flow5to1;
+        zoneData.NO1.flow3to1 += flow3to1;
+        zoneData.NO1.flow1to2 += flow1to2;
       } else if (zId === 'NO2') {
         zoneData.NO2.denmarkImport += dkIE.imp;
         zoneData.NO2.denmarkExport += dkIE.exp;
@@ -919,14 +939,22 @@ function processCBETData(rawData, periodType) {
         zoneData.NO2.netherlandsExport += nlIE.exp;
         zoneData.NO2.ukImport += ukIE.imp;
         zoneData.NO2.ukExport += ukIE.exp;
+        zoneData.NO2.flow1to2 += flow1to2;
+        zoneData.NO2.flow5to2 += flow5to2;
       } else if (zId === 'NO3') {
         zoneData.NO3.swedenImport += seNO3.imp;
         zoneData.NO3.swedenExport += seNO3.exp;
+        zoneData.NO3.flow4to3 += flow4to3;
+        zoneData.NO3.flow3to1 += flow3to1;
       } else if (zId === 'NO4') {
         zoneData.NO4.swedenImport += seNO4.imp;
         zoneData.NO4.swedenExport += seNO4.exp;
         zoneData.NO4.finlandImport += fiIE.imp;
         zoneData.NO4.finlandExport += fiIE.exp;
+        zoneData.NO4.flow4to3 += flow4to3;
+      } else if (zId === 'NO5') {
+        zoneData.NO5.flow5to1 += flow5to1;
+        zoneData.NO5.flow5to2 += flow5to2;
       }
 
       zoneData[zId].history.push({
@@ -947,6 +975,11 @@ function processCBETData(rawData, periodType) {
     zoneData[zId].utlandExport = Math.round(zoneData[zId].utlandExport * 10) / 10;
     zoneData[zId].inlandImport = Math.round(zoneData[zId].inlandImport * 10) / 10;
     zoneData[zId].inlandExport = Math.round(zoneData[zId].inlandExport * 10) / 10;
+    zoneData[zId].flow5to1 = Math.round((zoneData[zId].flow5to1 || 0) * 10) / 10;
+    zoneData[zId].flow5to2 = Math.round((zoneData[zId].flow5to2 || 0) * 10) / 10;
+    zoneData[zId].flow3to1 = Math.round((zoneData[zId].flow3to1 || 0) * 10) / 10;
+    zoneData[zId].flow4to3 = Math.round((zoneData[zId].flow4to3 || 0) * 10) / 10;
+    zoneData[zId].flow1to2 = Math.round((zoneData[zId].flow1to2 || 0) * 10) / 10;
     if (zId === 'NO1' || zId === 'NO3') {
       zoneData[zId].swedenImport = Math.round(zoneData[zId].swedenImport * 10) / 10;
       zoneData[zId].swedenExport = Math.round(zoneData[zId].swedenExport * 10) / 10;
