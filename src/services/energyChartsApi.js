@@ -744,7 +744,7 @@ export async function fetchEnergyChartsCBET(startStr, endStr, periodType = 'DAY'
     effEndStr = formatDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate());
   }
 
-  const cacheKey = `ec_cbet_v4_${country}_${startStr}_${effEndStr}_${periodType}`;
+  const cacheKey = `ec_cbet_v5_${country}_${startStr}_${effEndStr}_${periodType}`;
   
   if (cache.has(cacheKey)) {
     return cache.get(cacheKey);
